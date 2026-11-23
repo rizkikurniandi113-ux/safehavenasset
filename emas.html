@@ -104,8 +104,13 @@ function toast(m){const t=document.createElement('div');t.className='toast';t.te
 
 /* ================= HARGA ================= */
 const base=m=>num(S.harga.base[m]);
-const hJual=(m,g)=>(base(m)+S.settings.marginJual)*g;
-const hBuyback=(m,g)=>m==='Antam'&&S.antam?.bb&&S.antam.tgl===S.harga.tgl?Math.max(0,(S.antam.bb-num(S.settings.potBbAntam))*g):Math.max(0,(base(m)-S.settings.spreadBuyback)*g);
+const hJualAuto=(m,g)=>(base(m)+S.settings.marginJual)*g;
+const HT=m=>(S.settings.hargaToko||{})[m];
+const manualOn=m=>{const h=HT(m);return !!(h&&h.mode==='manual')};
+const manualVal=(m,g,k)=>{const h=HT(m);if(!h||h.mode!=='manual')return 0;const v=(h.t||{})[String(g)];return v&&v[k]?v[k]:0};
+const hJual=(m,g)=>manualVal(m,g,'j')||hJualAuto(m,g);
+const hBuyback=(m,g)=>manualVal(m,g,'b')||hBuybackAuto(m,g);
+const hBuybackAuto=(m,g)=>m==='Antam'&&S.antam?.bb&&S.antam.tgl===S.harga.tgl?Math.max(0,(S.antam.bb-num(S.settings.potBbAntam))*g):Math.max(0,(base(m)-S.settings.spreadBuyback)*g);
 const spotGram=()=>S.harga.xau&&S.harga.kurs?S.harga.xau*S.harga.kurs/31.1035:0;
 function cekAlert(){
   const hit=[];
@@ -150,12 +155,14 @@ function vHarga(){
   </div>
   <div class="card"><h3>Daftar harga jual & buyback</h3>
     <div class="seg">${M.map(m=>`<button class="${m===waMerek?'on':''}" onclick="waMerek='${esc(m)}';render()">${esc(m)}</button>`).join('')}</div>
-    ${base(waMerek)?`<table><tr><th>Gram</th><th>Jual</th><th>Buyback</th></tr>
-    ${GRAMS.map(g=>`<tr><td>${g} gr</td><td>${rp(hJual(waMerek,g))}</td><td>${rp(hBuyback(waMerek,g))}</td></tr>`).join('')}</table>
-    <p class="mut">Margin jual ${rp(S.settings.marginJual)}/gr · potongan buyback ${rp(S.settings.spreadBuyback)}/gr (ubah di Pengaturan)</p>`:'<p class="mut">Isi harga dasar dulu.</p>'}
+    ${manualOn(waMerek)&&!sudahHariIni(HT(waMerek).upd)?`<div class="alert">✏️ Harga toko ${esc(waMerek)} terakhir diubah ${HT(waMerek).upd?fmtTgl(tglDari(HT(waMerek).upd)):'-'}. Perbarui jika harga hari ini berubah.</div>`:''}
+    ${base(waMerek)||manualOn(waMerek)?`<table><tr><th>Gram</th><th>Jual</th><th>Buyback</th></tr>
+    ${GRAMS.map(g=>`<tr><td>${String(g).replace('.',',')} gr</td><td>${rp(hJual(waMerek,g))}${manualVal(waMerek,g,'j')?' ✏️':''}</td><td>${rp(hBuyback(waMerek,g))}${manualVal(waMerek,g,'b')?' ✏️':''}</td></tr>`).join('')}</table>
+    <p class="mut">${manualOn(waMerek)?'✏️ = harga yang Anda tulis sendiri. Gramasi yang kosong memakai hitungan otomatis.':`Otomatis: margin jual ${rp(S.settings.marginJual)}/gr · potongan buyback ${rp(S.settings.spreadBuyback)}/gr`}</p>`:'<p class="mut">Isi harga dasar dulu, atau tulis harga toko sendiri.</p>'}
+    <button class="sec sm" style="margin-top:8px" onclick="formHargaToko('${esc(waMerek)}')">✏️ Tulis harga jual toko ${esc(waMerek)}</button>
   </div>
   <div class="card"><h3>Daftar harga untuk WhatsApp</h3>
-    ${base(waMerek)?`<canvas id="wa" width="1080" height="1350"></canvas>
+    ${base(waMerek)||manualOn(waMerek)?`<canvas id="wa" width="1080" height="1350"></canvas>
     <div class="row" style="margin-top:10px"><button class="grow" onclick="shareImg()">Bagikan gambar</button><button class="sec grow" onclick="copyTeks()">Salin teks</button></div>`:'<p class="mut">Isi harga dasar dulu.</p>'}
   </div>
   <div class="card"><h3>Alert harga</h3>
@@ -199,7 +206,7 @@ function drawWA(){
   x.textAlign='left';x.fillText('Berat',110,300);x.textAlign='right';x.fillText('Harga Jual',660,300);x.fillText('Buyback',970,300);
   GRAMS.forEach((gr,i)=>{const y=380+i*92;
     x.fillStyle=i%2?'rgba(216,176,76,.06)':'rgba(216,176,76,.14)';x.fillRect(80,y-58,920,86);
-    x.fillStyle='#f2ede2';x.font='bold 42px -apple-system,system-ui,sans-serif';x.textAlign='left';x.fillText(gr+' gr',110,y);
+    x.fillStyle='#f2ede2';x.font='bold 42px -apple-system,system-ui,sans-serif';x.textAlign='left';x.fillText(String(gr).replace('.',',')+' gr',110,y);
     x.textAlign='right';x.fillStyle='#f3d98b';x.fillText(rp(hJual(m,gr)),660,y);x.fillStyle='#f2ede2';x.font='38px -apple-system,system-ui,sans-serif';x.fillText(rp(hBuyback(m,gr)),970,y)});
   x.textAlign='center';x.fillStyle='#a39a86';x.font='34px -apple-system,system-ui,sans-serif';
   x.fillText('Harga dapat berubah sewaktu-waktu',540,1240);
@@ -211,7 +218,7 @@ function shareImg(){const c=document.getElementById('wa');c.toBlob(async b=>{
   try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Harga Emas'});return}}catch(e){if(e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;a.click()})}
 function copyTeks(){const m=waMerek;
-  const t=`*${S.settings.nama}*\nHarga Emas ${m} – ${fmtTgl(S.harga.tgl||today())}\n\n`+GRAMS.map(g=>`${g} gr : ${rp(hJual(m,g))}  | BB ${rp(hBuyback(m,g))}`).join('\n')+`\n\nHarga dapat berubah sewaktu-waktu.`+(S.settings.wa?`\nPesan: WA ${S.settings.wa}`:'');
+  const t=`*${S.settings.nama}*\nHarga Emas ${m} – ${fmtTgl(S.harga.tgl||today())}\n\n`+GRAMS.map(g=>`${String(g).replace('.',',')} gr : ${rp(hJual(m,g))}  | BB ${rp(hBuyback(m,g))}`).join('\n')+`\n\nHarga dapat berubah sewaktu-waktu.`+(S.settings.wa?`\nPesan: WA ${S.settings.wa}`:'');
   navigator.clipboard?.writeText(t).then(()=>toast('Teks disalin'),()=>prompt('Salin teks:',t))||prompt('Salin teks:',t)}
 
 /* ---------- Tab Stok ---------- */
@@ -347,7 +354,11 @@ function dl(txt,nama,type){const a=document.createElement('a');a.href=URL.create
 
 /* ---------- Pengaturan ---------- */
 function vSet(){const s=S.settings;
-  return `<div class="card"><h3>Usaha</h3>
+  return `<div class="card"><h3>✏️ Harga jual toko</h3>
+  <p class="mut" style="margin-top:0">Tulis sendiri harga jual & buyback toko per gramasi (0,5 gr – 100 gr). Jika tidak diisi, harga dihitung otomatis dari harga dasar + margin.</p>
+  ${s.merek.map(m=>{const h=HT(m),on=manualOn(m);return `<div class="item row"><div class="grow"><b>${esc(m)}</b><div class="mut">${on?`Manual · 1 gr: jual ${rp(hJual(m,1))} · buyback ${rp(hBuyback(m,1))}${h.upd?' · diubah '+fmtTgl(tglDari(h.upd)):''}`:'Otomatis (harga dasar + margin)'}</div></div><button class="${on?'':'sec '}sm" onclick="formHargaToko('${esc(m)}')">Atur</button></div>`}).join('')}
+  </div>
+  <div class="card"><h3>Usaha</h3>
   <label>Nama usaha</label><input id="s_nama" value="${esc(s.nama)}">
   <label>No. WA untuk daftar harga</label><input id="s_wa" inputmode="tel" value="${esc(s.wa)}">
   <label>Merek yang dijual (pisahkan koma)</label><input id="s_merek" value="${esc(s.merek.join(', '))}"></div>
@@ -577,7 +588,7 @@ function formGh(){const c=ghCfg();
     if(!d.owner||!d.repo||!d.token)return false;localStorage.setItem(GHK,JSON.stringify(Object.assign(c,{owner:d.owner.trim(),repo:d.repo.trim(),token:d.token.trim()})))},
   'Buat token di github.com → Settings → Developer settings → Fine-grained tokens. Pilih hanya repo ini, izin "Contents: Read and write". Token hanya disimpan di HP ini dan tidak ikut di file backup.')}
 function pubData(){const A=A_(),s=S.settings;
-  return {versi:1,diterbitkan:new Date().toISOString(),sumber:'aplikasi',toko:{nama:s.nama,wa:s.wa?waNum(s.wa):'',tampil:!!s.tampilToko,jual:s.tampilToko&&A.beli?Math.round(hJual('Antam',1)):0,buyback:s.tampilToko&&A.beli?Math.round(hBuyback('Antam',1)):0,links:{wa:s.linkWA||'',tg:tgLink(),web:pageUrl()},margin:num(s.marginJual),potBb:num(s.potBbAntam)},
+  return {versi:1,diterbitkan:new Date().toISOString(),sumber:'aplikasi',toko:{nama:s.nama,wa:s.wa?waNum(s.wa):'',tampil:!!s.tampilToko,jual:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hJual('Antam',1)):0,buyback:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hBuyback('Antam',1)):0,manual:manualOn('Antam'),tabel:s.tampilToko&&manualOn('Antam')?Object.fromEntries(GRAMS.map(g=>[String(g),{j:Math.round(hJual('Antam',g)),b:Math.round(hBuyback('Antam',g))}])):null,links:{wa:s.linkWA||'',tg:tgLink(),web:pageUrl()},margin:num(s.marginJual),potBb:num(s.potBbAntam)},
     antam:{tgl:A.tgl,jam:A.jam,beli:A.beli,bb:A.bb,prevBeli:A.prevBeli,prevBb:A.prevBb,spotRef:A.spotRef,xauRef:A.xauRef,offset:s.offset,beta:betaCalc(),riwayat:A.riwayat.slice(-90)}}}
 async function publish(){const c=ghCfg();if(!c.token)return formGh();if(!A_().beli)return toast('Isi harga Antam dulu');
   toast('Menerbitkan…');
@@ -764,6 +775,36 @@ async function sinkronRepo(paksa){
 setTimeout(()=>sinkronRepo(true),1500);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)sinkronRepo(false)});
 const teksAkurasiApp=()=>{const r=S.akurasi&&S.akurasi.ringkasan;return r&&r.n?` Akurasi arah prediksi: <b>${r.tepat}/${r.n}</b> hari terakhir, selisih rata-rata ${rp(r.rataErr)}.`:''};
+
+/* ---- Harga jual toko manual per gramasi ---- */
+const tglDari=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const sudahHariIni=ts=>!!ts&&tglDari(ts)===today();
+let htMode='manual';
+function formHargaToko(m){m=m||S.settings.merek[0];const h=HT(m)||{mode:'manual',t:{}};htMode=h.mode==='auto'?'auto':'manual';
+  const fv=v=>v?Math.round(v).toLocaleString('id-ID'):'';
+  document.getElementById('mbox').innerHTML=`<h3>✏️ Harga jual toko</h3>
+   <div class="seg">${S.settings.merek.map(x=>`<button class="${x===m?'on':''}" onclick="formHargaToko('${esc(x)}')">${esc(x)}</button>`).join('')}</div>
+   <div class="seg" id="htSeg"><button class="${htMode==='manual'?'on':''}" onclick="htSet('manual')">Saya tulis sendiri</button><button class="${htMode==='auto'?'on':''}" onclick="htSet('auto')">Otomatis (margin)</button></div>
+   <p class="mut" style="margin:0 0 6px">Harga per keping. Kosongkan gramasi yang tidak dijual / ingin dihitung otomatis. Abu-abu = hitungan otomatis saat ini.</p>
+   <table id="htTab"><tr><th>Berat</th><th>Jual</th><th>Buyback</th></tr>
+   ${GRAMS.map(g=>{const v=(h.t||{})[String(g)]||{};return `<tr><td>${String(g).replace('.',',')} gr</td>
+     <td><input id="htj_${String(g).replace('.','_')}" inputmode="numeric" oninput="fmtRp(this)" value="${fv(v.j)}" placeholder="${fv(hJualAuto(m,g))}" style="padding:7px;font-size:15px"></td>
+     <td><input id="htb_${String(g).replace('.','_')}" inputmode="numeric" oninput="fmtRp(this)" value="${fv(v.b)}" placeholder="${fv(hBuybackAuto(m,g))}" style="padding:7px;font-size:15px"></td></tr>`}).join('')}</table>
+   <div class="row" style="margin-top:10px"><button class="sec sm" onclick="htIsiOtomatis('${esc(m)}')">Isi dari hitungan otomatis</button><button class="sec sm" onclick="htKosongkan()">Kosongkan</button></div>
+   <div class="row" style="margin-top:14px"><button class="sec grow" onclick="closeM()">Batal</button><button class="grow" onclick="htSimpan('${esc(m)}')">Simpan</button></div>`;
+  document.getElementById('modal').style.display='flex';htSet(htMode)}
+function htSet(md){htMode=md;const b=document.querySelectorAll('#htSeg button');b[0].className=md==='manual'?'on':'';b[1].className=md==='auto'?'on':'';
+  document.getElementById('htTab').style.opacity=md==='manual'?1:.4;document.querySelectorAll('#htTab input').forEach(i=>i.disabled=md!=='manual')}
+function htIsiOtomatis(m){GRAMS.forEach(g=>{const k=String(g).replace('.','_');document.getElementById('htj_'+k).value=Math.round(hJualAuto(m,g)).toLocaleString('id-ID');document.getElementById('htb_'+k).value=Math.round(hBuybackAuto(m,g)).toLocaleString('id-ID')})}
+function htKosongkan(){document.querySelectorAll('#htTab input').forEach(i=>i.value='')}
+function htSimpan(m){const t={};let salah='';
+  GRAMS.forEach(g=>{const k=String(g).replace('.','_'),j=num(document.getElementById('htj_'+k).value),b=num(document.getElementById('htb_'+k).value);
+    if(j||b)t[String(g)]={j,b};if(j&&b&&b>j)salah=salah||`${String(g).replace('.',',')} gr: buyback lebih besar dari harga jual`});
+  if(salah)return toast(salah);
+  if(htMode==='manual'&&!Object.keys(t).length)return toast('Isi minimal satu harga, atau pilih Otomatis');
+  S.settings.hargaToko=S.settings.hargaToko||{};S.settings.hargaToko[m]={mode:htMode,t,upd:Date.now()};
+  save();closeM();render();toast('Harga toko '+m+' tersimpan');
+  if(m==='Antam'&&ghCfg().token&&ghCfg().auto&&A_().beli)setTimeout(publish,400)}
 
 /* ---- Pengingat: harga Antam belum diupdate ---- */
 const antamTelat=()=>A_().tgl!==today()&&new Date().getHours()>=9;

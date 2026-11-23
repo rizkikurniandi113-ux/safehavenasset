@@ -91,7 +91,8 @@ function render(){
     ${a.spotRef&&G.xau?`<div class="grid"><div><span>🔮 Proyeksi beli</span><b>${rp(pB())}</b></div><div><span>🔮 Proyeksi buyback</span><b>${rp(pBb())}</b></div></div>
     <p class="mut">Perkiraan dari pergerakan XAUUSD & kurs sejak ${esc(a.jam)} WIB (est. ${j<0?'-':'+'}${rp(Math.abs(j))}/gr). Harga resmi bisa berbeda.</p>`:''}
   </div>
-  ${t.tampil&&t.jual?`<div class="card"><h2>🏪 Harga ${esc(t.nama)}</h2><div class="grid"><div><span>Kami jual / gr</span><b>${rp(t.jual)}</b></div><div><span>Kami beli (buyback) / gr</span><b>${rp(t.buyback)}</b></div></div></div>`:''}
+  ${t.tampil&&t.jual?`<div class="card"><h2>🏪 Harga ${esc(t.nama)}</h2><div class="grid"><div><span>Kami jual / gr</span><b>${rp(t.jual)}</b></div><div><span>Kami beli (buyback) / gr</span><b>${rp(t.buyback)}</b></div></div>
+   ${t.tabel?`<table style="margin-top:8px"><tr><th>Berat</th><th>Kami jual</th><th>Kami beli</th></tr>${Object.keys(t.tabel).sort((a,b)=>a-b).map(g=>`<tr><td>${gL(+g)}</td><td>${rp(t.tabel[g].j)}</td><td>${rp(t.tabel[g].b)}</td></tr>`).join('')}</table>`:''}</div>`:''}
   ${t.links?.wa?`<a class="wa" style="background:#d8b04c;color:#3a0707" href="${esc(t.links.wa)}">🔔 Ikuti Channel WhatsApp</a>`:''}
   ${t.links?.tg?`<a class="wa" style="background:#2aabee;color:#fff" href="${esc(t.links.tg)}">📢 Gabung Channel Telegram</a>`:''}
   ${t.wa?`<a class="wa" href="https://wa.me/${esc(t.wa)}?text=${encodeURIComponent('Halo '+(t.nama||'')+', saya mau tanya harga emas hari ini.')}">💬 Pesan / tanya via WhatsApp</a>`:''}
@@ -100,7 +101,7 @@ function render(){
   <div class="card"><h2>🧮 Kalkulator</h2>
     <select onchange="calcG=+this.value;render()">${AG.map(g=>`<option value="${g}" ${g===calcG?'selected':''}>${gL(g)}</option>`).join('')}</select>
     <table style="margin-top:8px"><tr><td>Harga beli Antam</td><td><b>${rp(antamG(calcG))}</b></td></tr><tr><td>Buyback Antam</td><td>${rp(a.bb*calcG)}</td></tr>
-    ${t.tampil&&t.jual?`<tr><td>Kami beli dari Anda</td><td>${rp(t.buyback*calcG)}</td></tr>`:''}</table></div>
+    ${t.tampil&&t.jual?(t.tabel&&t.tabel[String(calcG)]?`<tr><td>Harga jual kami</td><td><b>${rp(t.tabel[String(calcG)].j)}</b></td></tr><tr><td>Kami beli dari Anda</td><td>${rp(t.tabel[String(calcG)].b)}</td></tr>`:`<tr><td>Kami beli dari Anda</td><td>${rp(t.buyback*calcG)}</td></tr>`):''}</table></div>
   ${akurasi()}
   ${grafik()}`;
 }
