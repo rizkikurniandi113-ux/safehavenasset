@@ -1,0 +1,56 @@
+{
+ "versi": 1,
+ "diterbitkan": "2026-11-23T03:48:46.338Z",
+ "sumber": "aplikasi",
+ "toko": {
+  "nama": "@safehaven.assets",
+  "wa": "6285716522215",
+  "tampil": true,
+  "jual": 2520000,
+  "buyback": 2115000,
+  "links": {
+   "wa": "https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m",
+   "tg": "https://t.me/safehavenasset",
+   "web": "https://rizkikurniandi113-ux.github.io/safehavenasset/"
+  },
+  "margin": 15000,
+  "potBb": 0
+ },
+ "antam": {
+  "tgl": "2026-11-23",
+  "jam": "10.48",
+  "beli": 2505000,
+  "bb": 2115000,
+  "prevBeli": 0,
+  "prevBb": 0,
+  "spotRef": 2113857.415848528,
+  "xauRef": 3604.899902,
+  "offset": {
+   "1": 0,
+   "2": -60000,
+   "3": -115000,
+   "5": -225000,
+   "10": -505000,
+   "25": -1388000,
+   "50": -2855000,
+   "100": -5788000,
+   "250": -14735000,
+   "500": -29680000,
+   "1000": -59400000,
+   "0.5": 50000
+  },
+  "beta": {
+   "b": 1,
+   "bb": 1,
+   "n": 0
+  },
+  "riwayat": [
+   {
+    "tgl": "2026-11-23",
+    "beli": 2505000,
+    "bb": 2115000,
+    "spot": 2113857
+   }
+  ]
+ }
+}
