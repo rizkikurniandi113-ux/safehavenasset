@@ -56,7 +56,7 @@ const PAGE = D => D?.toko?.links?.web || (OWNER ? `https://${OWNER.toLowerCase()
 function kaki(D, pendek) {
   const t = D?.toko || {}, L = t.links || {};
   let s = '';
-  if (!pendek && t.tampil && t.jual) s += `\n\n🏪 <b>Harga ${esc(t.nama)}</b>\n• Jual: ${rp(t.jual)}/gr\n• Buyback: ${rp(t.buyback)}/gr`;
+  if (!pendek && t.tampil && t.jual) s += `\n\n🏪 <b>Harga ${esc(String(t.nama || '').replace(/^@/, ''))}</b>\n• Jual: ${rp(t.jual)}/gr\n• Buyback: ${rp(t.buyback)}/gr`;
   s += '\n';
   if (t.wa) s += `\n📲 Pesan: https://wa.me/${esc(t.wa)}`;
   if (L.wa) s += `\n🔔 Channel WA: ${esc(L.wa)}`;
