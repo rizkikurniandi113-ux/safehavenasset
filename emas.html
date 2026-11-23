@@ -82,7 +82,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 const KEY='bisnisEmas.v1';
 const GRAMS=[0.5,1,2,3,5,10,25,50,100];
 const DEF={
-  settings:{nama:'@safehaven.assets',wa:'',marginJual:15000,spreadBuyback:60000,pajakJual:0,pajakBeli:0,merek:['Antam','UBS','Galeri24','Lainnya'],tampilToko:true,potBbAntam:0,linkWA:'https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m',linkTG:'@safehavenasset',linkWeb:'',tdKey:'',
+  settings:{nama:'@safehaven.assets',wa:'',marginJual:15000,spreadBuyback:60000,pajakJual:0,pajakBeli:0,merek:['Antam','UBS','Galeri24','Lainnya'],tampilToko:true,potBbAntam:0,linkWA:'https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m',linkTG:'@safehavenassets1',linkWeb:'',tdKey:'',
     offset:{'0.5':50000,'1':0,'2':-60000,'3':-115000,'5':-225000,'10':-505000,'25':-1388000,'50':-2855000,'100':-5788000,'250':-14735000,'500':-29680000,'1000':-59400000}},
   harga:{tgl:'',base:{},xau:0,kurs:0},
   stok:[],trx:[],pelanggan:[],pesanan:[],alerts:[],riwayat:[],biaya:[],
@@ -90,7 +90,7 @@ const DEF={
   antam:{tgl:'',jam:'',beli:0,bb:0,prevBeli:0,prevBb:0,spotRef:0,xauRef:0,riwayat:[]}
 };
 let S=load();
-if(!S.settings.linkWA)S.settings.linkWA=DEF.settings.linkWA;if(!S.settings.linkTG)S.settings.linkTG=DEF.settings.linkTG;
+if(!S.settings.linkWA)S.settings.linkWA=DEF.settings.linkWA;if(!S.settings.linkTG||/^@?safehavenasset$|t\.me\/safehavenasset$/.test(S.settings.linkTG.trim()))S.settings.linkTG=DEF.settings.linkTG;
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return Object.assign(structuredClone(DEF),d,{settings:Object.assign({},DEF.settings,d.settings||{})})}catch(e){}return structuredClone(DEF)}
 function save(quiet){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Gagal menyimpan')}if(!quiet&&typeof jadwalBackup==='function')jadwalBackup()}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -353,7 +353,7 @@ function vSet(){const s=S.settings;
   <label>Merek yang dijual (pisahkan koma)</label><input id="s_merek" value="${esc(s.merek.join(', '))}"></div>
   <div class="card"><h3>Link channel (untuk posting, poster QR & halaman publik)</h3>
   <label>Link Channel WhatsApp</label><input id="s_lwa" placeholder="https://whatsapp.com/channel/..." value="${esc(s.linkWA)}">
-  <label>Channel Telegram (username atau link)</label><input id="s_ltg" placeholder="@safehavenasset" value="${esc(s.linkTG)}">
+  <label>Channel Telegram (username atau link)</label><input id="s_ltg" placeholder="@safehavenassets1" value="${esc(s.linkTG)}">
   <label>Alamat halaman publik (kosongkan = otomatis dari GitHub)</label><input id="s_lweb" placeholder="${esc(pageUrl()||'https://...')}" value="${esc(s.linkWeb)}"></div>
   <div class="card"><h3>Kurs real-time (opsional)</h3>
   <label>API key Twelve Data</label><input id="s_td" placeholder="kosongkan = kurs per jam (gratis tanpa key)" value="${esc(s.tdKey)}">
@@ -371,6 +371,7 @@ function vSet(){const s=S.settings;
    `<p style="margin-top:0">${c.auto&&c.pass?'<span class="tag g">aktif</span>':'<span class="tag">nonaktif</span>'} ${c.last?'Terakhir: '+new Date(c.last).toLocaleString('id-ID'):'Belum pernah'}${c.pending?' · <span class="mut">menunggu…</span>':''}</p>
    ${c.err?`<p class="bad" style="font-size:13px">Error terakhir: ${esc(c.err)}</p>`:''}
    <p class="mut">Setiap ada perubahan data, aplikasi otomatis mengenkripsi & menyimpan backup ke repo GitHub (paling cepat tiap 15 menit, dan saat aplikasi ditutup). Bisa dipulihkan di HP lain.</p>
+   <p class="mut" style="color:var(--gold2)">⚠️ Jika ada 2 admin, aktifkan backup otomatis <b>hanya di HP admin utama</b> agar backup tidak saling menimpa.</p>
    <div class="row"><button class="grow" onclick="backupCloud(true)">Backup sekarang</button><button class="sec grow" onclick="formPassBackup()">${c.pass?'Ganti':'Atur'} kata sandi</button></div>
    <div class="row" style="margin-top:8px"><button class="sec grow" onclick="formPulihCloud()">Pulihkan dari cloud</button>${c.pass?`<button class="sec grow" onclick="setCl({auto:${!c.auto}});render()">${c.auto?'Matikan':'Aktifkan'} otomatis</button>`:''}</div>`}</div>
   <div class="card"><h3>🔒 Kunci PIN</h3><p class="mut" style="margin-top:0">${localStorage.getItem(PINK)?'PIN aktif. Aplikasi terkunci saat dibuka & setelah ditinggal 1 menit.':'Belum ada PIN. Disarankan jika HP sering dipegang orang lain.'}</p>
