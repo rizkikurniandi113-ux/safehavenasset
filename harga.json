@@ -1,6 +1,6 @@
 {
  "versi": 1,
- "diterbitkan": "2026-11-23T04:07:27.025Z",
+ "diterbitkan": "2026-11-23T04:11:51.259Z",
  "sumber": "aplikasi",
  "toko": {
   "nama": "@safehaven.assets",
@@ -23,8 +23,8 @@
   "bb": 2115000,
   "prevBeli": 0,
   "prevBb": 0,
-  "spotRef": 2113857.415848528,
-  "xauRef": 3604.899902,
+  "spotRef": 2109487.842445167,
+  "xauRef": 3604.449951,
   "offset": {
    "1": 0,
    "2": -60000,
@@ -49,7 +49,7 @@
     "tgl": "2026-11-23",
     "beli": 2505000,
     "bb": 2115000,
-    "spot": 2113857
+    "spot": 2109488
    }
   ]
  }
