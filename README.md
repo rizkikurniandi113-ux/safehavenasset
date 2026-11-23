@@ -1,0 +1,2 @@
+# safehavenasset
+Jual Beli Emas
