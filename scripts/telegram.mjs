@@ -250,7 +250,7 @@ function terapkanAntam(D, G, r) {
   Object.assign(a, { tgl: hari, jam: r.jam, beli: r.beli, bb: r.bb, spotRef: spot || a.spotRef || 0, xauRef: G.xau || a.xauRef || 0 });
   a.riwayat = (a.riwayat || []).filter(x => x.tgl !== hari); a.riwayat.push({ tgl: hari, beli: r.beli, bb: r.bb, spot: Math.round(spot) }); a.riwayat = a.riwayat.slice(-90);
   a.beta = hitungBeta(a.riwayat);
-  if (t.tampil && t.margin != null) { t.jual = r.beli + Number(t.margin || 0); t.buyback = Math.max(0, r.bb - Number(t.potBb || 0)); }
+  if (t.tampil && t.margin != null && !t.manual) { t.jual = r.beli + Number(t.margin || 0); t.buyback = Math.max(0, r.bb - Number(t.potBb || 0)); } // harga toko manual tidak ditimpa
   D.diterbitkan = NOW.toISOString(); D.sumber = 'telegram';
   fs.writeFileSync('harga.json', JSON.stringify(D, null, 1)); ST.ubah = true;
   return D;
