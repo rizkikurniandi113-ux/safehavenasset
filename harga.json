@@ -1,12 +1,12 @@
 {
  "versi": 1,
- "diterbitkan": "2026-11-23T04:12:54.620Z",
+ "diterbitkan": "2026-11-23T04:13:10.179Z",
  "sumber": "aplikasi",
  "toko": {
   "nama": "@safehaven.assets",
   "wa": "6285716522215",
   "tampil": true,
-  "jual": 25065001,
+  "jual": 25065000,
   "buyback": 2115000,
   "links": {
    "wa": "https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m",
@@ -19,7 +19,7 @@
  "antam": {
   "tgl": "2026-11-23",
   "jam": "10.48",
-  "beli": 25050001,
+  "beli": 25050000,
   "bb": 2115000,
   "prevBeli": 0,
   "prevBb": 0,
@@ -47,7 +47,7 @@
   "riwayat": [
    {
     "tgl": "2026-11-23",
-    "beli": 25050001,
+    "beli": 25050000,
     "bb": 2115000,
     "spot": 2109605
    }
