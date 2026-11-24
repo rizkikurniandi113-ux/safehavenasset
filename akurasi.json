@@ -1,0 +1,18 @@
+{
+ "riwayat": [
+  {
+   "tgl": "2026-11-24",
+   "ref": 2505000,
+   "pred": 2510000,
+   "actual": 2507000,
+   "tepat": true,
+   "err": 3000
+  }
+ ],
+ "ringkasan": {
+  "n": 1,
+  "tepat": 1,
+  "rataErr": 3000
+ },
+ "diperbarui": "2026-11-24T08:38:46.170Z"
+}
