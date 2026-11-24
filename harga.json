@@ -1,19 +1,21 @@
 {
  "versi": 1,
- "diterbitkan": "2026-11-23T04:45:23.445Z",
+ "diterbitkan": "2026-11-24T08:36:49.556Z",
  "sumber": "aplikasi",
  "toko": {
   "nama": "@safehaven.assets",
   "wa": "6285716522215",
   "tampil": true,
-  "jual": 2655000,
+  "jual": 2520000,
   "buyback": 2115000,
+  "manual": false,
+  "tabel": null,
   "links": {
    "wa": "https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m",
    "tg": "https://t.me/safehavenassets1",
-   "web": "https://rizkikurniandi113-ux.github.io/safehavenasset/"
+   "web": "https://safehaven-assets.github.io/safehavenasset/harga.html"
   },
-  "margin": 150000,
+  "margin": 15000,
   "potBb": 0
  },
  "antam": {
