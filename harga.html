@@ -92,7 +92,7 @@ function render(){
     <p class="mut">Perkiraan dari pergerakan XAUUSD & kurs sejak ${esc(a.jam)} WIB (est. ${j<0?'-':'+'}${rp(Math.abs(j))}/gr). Harga resmi bisa berbeda.</p>`:''}
   </div>
   ${t.tampil&&t.jual?`<div class="card"><h2>🏪 Harga ${esc(t.nama)}</h2><div class="grid"><div><span>Kami jual / gr</span><b>${rp(t.jual)}</b></div><div><span>Kami beli (buyback) / gr</span><b>${rp(t.buyback)}</b></div></div>
-   ${t.tabel?`<table style="margin-top:8px"><tr><th>Berat</th><th>Kami jual</th><th>Kami beli</th></tr>${Object.keys(t.tabel).sort((a,b)=>a-b).map(g=>`<tr><td>${gL(+g)}</td><td>${rp(t.tabel[g].j)}</td><td>${rp(t.tabel[g].b)}</td></tr>`).join('')}</table>`:''}</div>`:''}
+   ${t.tabel?`<table style="margin-top:8px"><tr><th>Berat</th><th>Kami jual</th><th>Kami beli</th></tr>${Object.keys(t.tabel).sort((a,b)=>a-b).map(g=>`<tr><td>${gL(+g)}</td><td>${t.tabel[g].j?rp(t.tabel[g].j):'–'}</td><td>${t.tabel[g].b?rp(t.tabel[g].b):'–'}</td></tr>`).join('')}</table>`:''}</div>`:''}
   ${t.links?.wa?`<a class="wa" style="background:#d8b04c;color:#3a0707" href="${esc(t.links.wa)}">🔔 Ikuti Channel WhatsApp</a>`:''}
   ${t.links?.tg?`<a class="wa" style="background:#2aabee;color:#fff" href="${esc(t.links.tg)}">📢 Gabung Channel Telegram</a>`:''}
   ${t.wa?`<a class="wa" href="https://wa.me/${esc(t.wa)}?text=${encodeURIComponent('Halo '+(t.nama||'')+', saya mau tanya harga emas hari ini.')}">💬 Pesan / tanya via WhatsApp</a>`:''}

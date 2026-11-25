@@ -354,7 +354,7 @@ function dl(txt,nama,type){const a=document.createElement('a');a.href=URL.create
 
 /* ---------- Pengaturan ---------- */
 function vSet(){const s=S.settings;
-  return `<div class="card"><h3>✏️ Harga jual toko</h3>
+  return `${cardInfoCh()}<div class="card"><h3>✏️ Harga jual toko</h3>
   <p class="mut" style="margin-top:0">Tulis sendiri harga jual & buyback toko per gramasi (0,5 gr – 100 gr). Jika tidak diisi, harga dihitung otomatis dari harga dasar + margin.</p>
   ${s.merek.map(m=>{const h=HT(m),on=manualOn(m);return `<div class="item row"><div class="grow"><b>${esc(m)}</b><div class="mut">${on?`Manual · 1 gr: jual ${rp(hJual(m,1))} · buyback ${rp(hBuyback(m,1))}${h.upd?' · diubah '+fmtTgl(tglDari(h.upd)):''}`:'Otomatis (harga dasar + margin)'}</div></div><button class="${on?'':'sec '}sm" onclick="formHargaToko('${esc(m)}')">Atur</button></div>`}).join('')}
   </div>
@@ -481,6 +481,7 @@ function vCh(){const G=G_(),A=A_(),sp=spotG(),adj=estAdj(),c=ghCfg();
    :'<p class="mut">Belum diisi. Ketuk tombol di bawah setelah Antam update (±09.15 WIB).</p>'}
    <div class="row" style="margin-top:10px"><button class="sm" onclick="formAntam()">Update harga Antam</button>${A.beli?'<button class="sec sm" onclick="formKalibrasi()">Kalibrasi batangan</button>':''}</div></div>
 
+  ${cardInfoCh()}
   <div class="card"><h3>📣 Posting channel</h3>
    <div class="seg">${[['antam','Harga Antam'],['global','Update global'],['tutup','Pasar tutup']].map(([k,l])=>`<button class="${postJenis===k?'on':''}" onclick="postJenis='${k}';render()">${l}</button>`).join('')}</div>
    ${(postJenis==='antam'?A.beli:G.xau)?`<canvas id="post" width="1080" height="1350"></canvas>
@@ -488,7 +489,7 @@ function vCh(){const G=G_(),A=A_(),sp=spotG(),adj=estAdj(),c=ghCfg();
    <div class="row" style="margin-top:10px"><button class="grow" onclick="sharePost()">Bagikan gambar</button><button class="sec grow" onclick="copyPost()">Salin teks</button></div>
    <p class="mut">Channel WA: ketuk "Bagikan gambar" (teks otomatis tersalin), pilih WhatsApp → channel Anda, lalu tempel teks sebagai keterangan.</p>`
    :`<p class="mut">${postJenis==='antam'?'Isi harga Antam dulu.':'Menunggu harga global.'}</p>`}
-   <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" style="width:auto" ${S.settings.tampilToko?'checked':''} onchange="S.settings.tampilToko=this.checked;save();render()"> Tampilkan harga jual/buyback toko saya di posting & halaman publik</label></div>
+   <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" style="width:auto" ${S.settings.tampilToko?'checked':''} onchange="S.settings.tampilToko=this.checked;save();render()"> Tampilkan harga toko saya di halaman publik (web)</label></div>
 
   <div class="card"><h3>🖼️ Poster promosi (dengan kode QR)</h3>
    <canvas id="poster" width="1080" height="1920" style="width:70%;display:block;margin:auto;border-radius:10px"></canvas>
@@ -505,7 +506,7 @@ function vCh(){const G=G_(),A=A_(),sp=spotG(),adj=estAdj(),c=ghCfg();
 function logoAt(x,X,Y,sz){const L=document.getElementById('hLogo');if(L&&L.complete&&L.naturalWidth){x.save();x.beginPath();x.arc(X+sz/2,Y+sz/2,sz/2+4,0,7);x.fillStyle='#d8b04c';x.fill();x.drawImage(L,X,Y,sz,sz);x.restore()}}
 /* ---- Teks posting ---- */
 function postText(){const A=A_(),G=G_(),s=S.settings,adj=estAdj();
-  const toko=s.tampilToko&&A.beli?`\n🏪 *Harga ${s.nama}*\n• Jual: ${rp(hJual('Antam',1))}/gr\n• Buyback: ${rp(hBuyback('Antam',1))}/gr\n`:'';
+  const toko='';
   const kaki=`${toko}${s.wa?`\n📲 Pesan/tanya: wa.me/${waNum(s.wa)}`:''}${s.linkWA?`\n🔔 Channel WA: ${s.linkWA}`:''}${tgLink()?`\n📢 Telegram: ${tgLink()}`:''}${pageUrl()?`\n🌐 Harga live: ${pageUrl()}`:''}\n\n_Harga referensi, dapat berubah sewaktu-waktu. Proyeksi hanya perkiraan, bukan saran investasi._`;
   if(postJenis==='antam'){
     const d=A.beli-A.prevBeli,db=A.bb-A.prevBb;
@@ -550,7 +551,6 @@ function drawAntam(x){const A=A_(),d=A.beli-A.prevBeli,db=A.bb-A.prevBb,red='#e4
     T(x,gLabel(g),80,y,34,'#f2ede2','left','bold');T(x,'Rp '+Math.round(antamG(g)).toLocaleString('id-ID'),760,y,34,'#f3d98b','right','bold');
     if(A.prevBeli)T(x,kF(d*g),1000,y,32,d<0?red:d>0?grn:'#a39a86','right')});
   const y2=465+AG.length*60;
-  if(S.settings.tampilToko)T(x,`Harga toko: jual ${rp(hJual('Antam',1))}/gr · buyback ${rp(hBuyback('Antam',1))}/gr`,540,y2+5,30,'#f3d98b','center','bold');
   T(x,'Harga referensi Antam, dapat berubah sewaktu-waktu',540,y2+50,26,'#a39a86','center');
 }
 function drawGlobal(x){const G=G_(),A=A_(),adj=estAdj(),neg=adj<0,col=neg?'#e46b5d':'#5fbf7a';
@@ -588,7 +588,7 @@ function formGh(){const c=ghCfg();
     if(!d.owner||!d.repo||!d.token)return false;localStorage.setItem(GHK,JSON.stringify(Object.assign(c,{owner:d.owner.trim(),repo:d.repo.trim(),token:d.token.trim()})))},
   'Buat token di github.com → Settings → Developer settings → Fine-grained tokens. Pilih hanya repo ini, izin "Contents: Read and write". Token hanya disimpan di HP ini dan tidak ikut di file backup.')}
 function pubData(){const A=A_(),s=S.settings;
-  return {versi:1,diterbitkan:new Date().toISOString(),sumber:'aplikasi',toko:{nama:s.nama,wa:s.wa?waNum(s.wa):'',tampil:!!s.tampilToko,jual:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hJual('Antam',1)):0,buyback:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hBuyback('Antam',1)):0,manual:manualOn('Antam'),tabel:s.tampilToko&&manualOn('Antam')?Object.fromEntries(GRAMS.map(g=>[String(g),{j:Math.round(hJual('Antam',g)),b:Math.round(hBuyback('Antam',g))}])):null,links:{wa:s.linkWA||'',tg:tgLink(),web:pageUrl()},margin:num(s.marginJual),potBb:num(s.potBbAntam)},
+  return {versi:1,diterbitkan:new Date().toISOString(),sumber:'aplikasi',toko:{nama:s.nama,wa:s.wa?waNum(s.wa):'',tampil:!!s.tampilToko,jual:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hJual('Antam',1)):0,buyback:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hBuyback('Antam',1)):0,manual:manualOn('Antam'),tabel:s.tampilToko&&infoPub()?Object.fromEntries(infoPub().rows.map(r=>[String(r.g),{j:r.j,b:r.b}])):s.tampilToko&&manualOn('Antam')?Object.fromEntries(GRAMS.map(g=>[String(g),{j:Math.round(hJual('Antam',g)),b:Math.round(hBuyback('Antam',g))}])):null,info:infoPub(),links:{wa:s.linkWA||'',tg:tgLink(),web:pageUrl()},margin:num(s.marginJual),potBb:num(s.potBbAntam)},
     antam:{tgl:A.tgl,jam:A.jam,beli:A.beli,bb:A.bb,prevBeli:A.prevBeli,prevBb:A.prevBb,spotRef:A.spotRef,xauRef:A.xauRef,offset:s.offset,beta:betaCalc(),riwayat:A.riwayat.slice(-90)}}}
 async function publish(){const c=ghCfg();if(!c.token)return formGh();if(!A_().beli)return toast('Isi harga Antam dulu');
   toast('Menerbitkan…');
@@ -805,6 +805,85 @@ function htSimpan(m){const t={};let salah='';
   S.settings.hargaToko=S.settings.hargaToko||{};S.settings.hargaToko[m]={mode:htMode,t,upd:Date.now()};
   save();closeM();render();toast('Harga toko '+m+' tersimpan');
   if(m==='Antam'&&ghCfg().token&&ghCfg().auto&&A_().beli)setTimeout(publish,400)}
+
+/* ---- Info harga toko ke channel (diisi manual oleh admin) ---- */
+const IC=()=>S.settings.infoCh||(S.settings.infoCh={judul:'',merek:'Antam',kolom:'jb',catatan:'',rows:{},ver:0,kirimAt:0,upd:0});
+const icRows=()=>{const ic=IC();return GRAMS.filter(g=>{const r=ic.rows[String(g)];return r&&((ic.kolom!=='b'&&r.j)||(ic.kolom!=='j'&&r.b))}).map(g=>({g,j:ic.kolom!=='b'?(ic.rows[String(g)].j||0):0,b:ic.kolom!=='j'?(ic.rows[String(g)].b||0):0}))};
+const icJudul=()=>IC().judul||('Harga Emas '+String(S.settings.nama||'').replace(/^@/,''));
+function infoPub(){const ic=IC(),R=icRows();if(!R.length||!ic.ver)return null;
+  return {ver:ic.ver,upd:ic.upd||ic.ver,judul:icJudul(),merek:ic.merek,kolom:ic.kolom,catatan:ic.catatan||'',rows:R}}
+function cardInfoCh(){const ic=IC(),R=icRows(),J=ic.kolom!=='b',B=ic.kolom!=='j';
+  return `<div class="card"><h3>🏪 Harga toko ke channel</h3>
+  ${R.length?`<p class="mut" style="margin-top:0">${esc(icJudul())} · ${esc(ic.merek)}</p><table><tr><th>Berat</th>${J?'<th>Harga jual</th>':''}${B?'<th>Buyback</th>':''}</tr>${R.map(r=>`<tr><td>${gLabel(r.g)}</td>${J?`<td>${r.j?rp(r.j):'–'}</td>`:''}${B?`<td>${r.b?rp(r.b):'–'}</td>`:''}</tr>`).join('')}</table>
+   ${ic.catatan?`<p class="mut">📝 ${esc(ic.catatan)}</p>`:''}<p class="mut">${ic.kirimAt?'Terakhir dikirim ke channel: '+new Date(ic.kirimAt).toLocaleString('id-ID',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Belum pernah dikirim ke channel.'}${ic.upd>ic.kirimAt&&ic.kirimAt?' <b>Ada perubahan yang belum dikirim.</b>':''}</p>`
+  :'<p class="mut" style="margin-top:0">Tulis sendiri harga emas toko per gramasi (0,5 gr – 100 gr), lalu kirim ke channel Telegram & WA kapan pun Anda mau. Harga toko tidak lagi ditempel otomatis di posting Antam & update global.</p>'}
+  <div class="row" style="margin-top:8px"><button class="${R.length?'sec ':''}grow" onclick="formInfoCh()">${R.length?'Ubah harga':'Isi harga'}</button>${R.length?'<button class="grow" onclick="kirimInfoCh()">Kirim ke channel</button>':''}</div>
+  ${R.length?'<button class="sec" style="width:100%;margin-top:8px" onclick="shareInfoCh()">Bagikan manual (gambar + teks)</button>':''}</div>`}
+let icM=null,icK=null;
+function formInfoCh(m,k){const ic=IC();m=m||icM||ic.merek||S.settings.merek[0];k=k||icK||ic.kolom||'jb';icM=m;icK=k;
+  const fv=v=>v?Math.round(v).toLocaleString('id-ID'):'',src=m===ic.merek?ic.rows:{};
+  const J=k!=='b',B=k!=='j',id=g=>String(g).replace('.','_');
+  document.getElementById('mbox').innerHTML=`<h3>🏪 Harga toko ke channel</h3>
+   <label style="margin-top:0">Merek</label><div class="seg">${S.settings.merek.map(x=>`<button class="${x===m?'on':''}" onclick="icSimpanSementara();icTmp=null;formInfoCh('${esc(x)}')">${esc(x)}</button>`).join('')}</div>
+   <label>Yang ditampilkan</label><div class="seg">${[['jb','Jual & buyback'],['j','Harga jual saja'],['b','Buyback saja']].map(([v,l])=>`<button class="${v===k?'on':''}" onclick="icSimpanSementara();formInfoCh(null,'${v}')">${l}</button>`).join('')}</div>
+   <p class="mut" style="margin:6px 0">Harga per keping. Kosongkan gramasi yang tidak ingin ditampilkan. Angka abu-abu = harga toko saat ini (contoh).</p>
+   <table id="icTab"><tr><th>Berat</th>${J?'<th>Harga jual</th>':''}${B?'<th>Buyback</th>':''}</tr>
+   ${GRAMS.map(g=>{const v=(icTmp&&icTmp[String(g)])||src[String(g)]||{};return `<tr><td>${String(g).replace('.',',')} gr</td>
+     ${J?`<td><input id="icj_${id(g)}" inputmode="numeric" oninput="fmtRp(this)" value="${fv(v.j)}" placeholder="${fv(hJual(m,g))}" style="padding:7px;font-size:15px"></td>`:''}
+     ${B?`<td><input id="icb_${id(g)}" inputmode="numeric" oninput="fmtRp(this)" value="${fv(v.b)}" placeholder="${fv(hBuyback(m,g))}" style="padding:7px;font-size:15px"></td>`:''}</tr>`}).join('')}</table>
+   <div class="row" style="margin-top:10px"><button class="sec sm" onclick="icIsiToko('${esc(m)}')">Isi dari harga toko</button><button class="sec sm" onclick="document.querySelectorAll('#icTab input').forEach(i=>i.value='')">Kosongkan</button></div>
+   <label>Judul posting</label><input id="icJudul" value="${esc(icTmpJ??ic.judul)}" placeholder="${esc('Harga Emas '+String(S.settings.nama||'').replace(/^@/,''))}">
+   <label>Catatan (opsional)</label><input id="icCat" value="${esc(icTmpC??ic.catatan)}" placeholder="mis. Stok terbatas · bisa COD Jakarta">
+   <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="icSync" style="width:auto" checked> Pakai juga sebagai Harga jual toko (nota & transaksi)</label>
+   <div class="row" style="margin-top:14px"><button class="sec grow" onclick="icTutup()">Batal</button><button class="sec grow" onclick="icSimpan(false)">Simpan</button></div>
+   <button style="width:100%;margin-top:8px" onclick="icSimpan(true)">Simpan & kirim ke channel</button>`;
+  document.getElementById('modal').style.display='flex'}
+let icTmp=null,icTmpJ=null,icTmpC=null;
+function icBaca(){const t={},id=g=>String(g).replace('.','_');GRAMS.forEach(g=>{const j=num(document.getElementById('icj_'+id(g))?.value||''),b=num(document.getElementById('icb_'+id(g))?.value||'');if(j||b)t[String(g)]={j,b}});return t}
+function icSimpanSementara(){const prev=icTmp||{},t=icBaca();GRAMS.forEach(g=>{const k=String(g),o=prev[k]||{},n=t[k]||{};
+  const j=document.getElementById('icj_'+k.replace('.','_'))?n.j||0:o.j||0,b=document.getElementById('icb_'+k.replace('.','_'))?n.b||0:o.b||0;if(j||b)prev[k]={j,b};else delete prev[k]});
+  icTmp=prev;icTmpJ=document.getElementById('icJudul').value;icTmpC=document.getElementById('icCat').value}
+function icTutup(){icTmp=icTmpJ=icTmpC=icM=icK=null;closeM()}
+function icIsiToko(m){const id=g=>String(g).replace('.','_');GRAMS.forEach(g=>{const j=document.getElementById('icj_'+id(g)),b=document.getElementById('icb_'+id(g));if(j)j.value=Math.round(hJual(m,g)).toLocaleString('id-ID');if(b)b.value=Math.round(hBuyback(m,g)).toLocaleString('id-ID')})}
+function icSimpan(kirim){icSimpanSementara();const t=icTmp||{},k=icK||'jb',m=icM||IC().merek;let salah='';
+  Object.entries(t).forEach(([g,v])=>{if(k==='jb'&&v.j&&v.b&&v.b>v.j)salah=salah||`${g.replace('.',',')} gr: buyback lebih besar dari harga jual`});
+  if(salah)return toast(salah);
+  const ada=Object.values(t).some(v=>(k!=='b'&&v.j)||(k!=='j'&&v.b));if(!ada)return toast('Isi minimal satu harga');
+  const ic=IC();Object.assign(ic,{merek:m,kolom:k,rows:t,judul:(icTmpJ||'').trim(),catatan:(icTmpC||'').trim(),upd:Date.now()});
+  if(document.getElementById('icSync')?.checked){const ht={};Object.entries(t).forEach(([g,v])=>{if(v.j||v.b)ht[g]={j:v.j||0,b:v.b||0}});
+    S.settings.hargaToko=S.settings.hargaToko||{};S.settings.hargaToko[m]={mode:'manual',t:ht,upd:Date.now()}}
+  save();icTutup();render();toast('Harga toko tersimpan');if(kirim)setTimeout(kirimInfoCh,300)}
+async function kirimInfoCh(){const c=ghCfg();if(!c.token){toast('Hubungkan ke GitHub dulu');return formGh()}
+  if(!icRows().length)return toast('Isi harga dulu');
+  if(!confirm('Kirim daftar harga toko ke channel Telegram'+(S.settings.linkWA?' & WA':'')+' sekarang?'))return;
+  const ic=IC(),lama=ic.ver;ic.ver=Date.now();toast('Mengirim…');
+  try{const data=pubData();if(!A_().beli){try{const r=JSON.parse(await ghGet('harga.json',true)||'{}');if(r.antam)data.antam=r.antam}catch(e){}}
+    await ghPut('harga.json',JSON.stringify(data,null,1),'Harga toko '+today()+' '+jamNow());ic.kirimAt=Date.now();setGh({last:Date.now()});save();render();
+    toast('✓ Terkirim ke bot. Muncul di channel ±1–3 menit')}
+  catch(e){ic.ver=lama;save();toast('Gagal kirim: '+e.message)}}
+function teksInfoCh(){const ic=IC(),R=icRows(),s=S.settings,J=ic.kolom!=='b',B=ic.kolom!=='j',f=v=>v?Math.round(v).toLocaleString('id-ID'):'–';
+  return `🏪 *${icJudul().toUpperCase()}*\n🗓️ ${hariPanjang(today())} · ⏰ ${jamNow()} WIB\n🥇 Emas ${ic.merek}\n\n`+
+    R.map(r=>`• ${gLabel(r.g)}: ${J?'Jual *Rp '+f(r.j)+'*':''}${J&&B?' · ':''}${B?'Buyback Rp '+f(r.b):''}`).join('\n')+
+    (ic.catatan?`\n\n📝 ${ic.catatan}`:'')+`\n${s.wa?`\n📲 Pesan: wa.me/${waNum(s.wa)}`:''}${s.linkWA?`\n🔔 Channel WA: ${s.linkWA}`:''}${tgLink()?`\n📢 Telegram: ${tgLink()}`:''}${pageUrl()?`\n🌐 Harga live: ${pageUrl()}`:''}\n\n_Harga dapat berubah sewaktu-waktu._`}
+function drawInfoCh(c){const x=c.getContext('2d'),ic=IC(),R=icRows(),J=ic.kolom!=='b',B=ic.kolom!=='j',nm=S.settings.nama||'';
+  x.fillStyle='#0d0c09';x.fillRect(0,0,1080,1350);
+  x.save();x.translate(540,700);x.rotate(-0.45);x.fillStyle='rgba(216,176,76,.06)';x.font=`bold 110px ${FONT}`;x.textAlign='center';x.fillText(nm,0,0);x.restore();
+  T(x,'HARGA EMAS TOKO',60,95,52,'#f3d98b','left','bold');T(x,String(nm).replace(/^@/,'')+' · Emas '+ic.merek,60,145,32,'#f2ede2');
+  T(x,hariPanjang(today())+' · '+jamNow()+' WIB',60,190,28,'#a39a86');
+  const n=R.length,rh=Math.min(90,Math.floor(760/Math.max(n,1))),y0=320;
+  T(x,'Berat',90,285,28,'#a39a86');if(J)T(x,'Harga jual',B?660:990,285,28,'#a39a86','right');if(B)T(x,'Buyback',990,285,28,'#a39a86','right');
+  R.forEach((r,i)=>{const y=y0+i*rh;x.fillStyle=i%2?'rgba(216,176,76,.05)':'rgba(216,176,76,.12)';x.fillRect(60,y,960,rh-8);const ty=y+rh/2+8;
+    T(x,gLabel(r.g),90,ty,38,'#f2ede2','left','bold');if(J)T(x,r.j?'Rp '+Math.round(r.j).toLocaleString('id-ID'):'–',B?660:990,ty,38,'#f3d98b','right','bold');
+    if(B)T(x,r.b?'Rp '+Math.round(r.b).toLocaleString('id-ID'):'–',990,ty,J?34:38,J?'#f2ede2':'#f3d98b','right',J?'':'bold')});
+  let y=y0+n*rh+50;if(ic.catatan){T(x,ic.catatan.slice(0,60),540,y,30,'#f3d98b','center','bold');y+=50}
+  T(x,'Harga per keping, dapat berubah sewaktu-waktu',540,Math.max(y,1230),26,'#a39a86','center');
+  x.fillStyle='#d8b04c';x.fillRect(0,1290,1080,60);T(x,nm+(S.settings.wa?'  ·  WA '+S.settings.wa:''),540,1331,34,'#14120d','center','bold');
+  logoAt(x,890,18,140)}
+function shareInfoCh(){const c=document.createElement('canvas');c.width=1080;c.height=1350;drawInfoCh(c);const t=teksInfoCh();
+  navigator.clipboard?.writeText(t).catch(()=>{});
+  c.toBlob(async b=>{const f=new File([b],'harga-toko-'+today()+'.png',{type:'image/png'});
+    try{if(navigator.canShare&&navigator.canShare({files:[f]})){toast('Teks tersalin, tempel sebagai keterangan');await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;a.click()})}
 
 /* ---- Pengingat: harga Antam belum diupdate ---- */
 const antamTelat=()=>A_().tgl!==today()&&new Date().getHours()>=9;
