@@ -56,7 +56,6 @@ const PAGE = D => D?.toko?.links?.web || (OWNER ? `https://${OWNER.toLowerCase()
 function kaki(D, pendek) {
   const t = D?.toko || {}, L = t.links || {};
   let s = '';
-  if (!pendek && t.tampil && t.jual) s += `\n\n🏪 <b>Harga ${esc(String(t.nama || '').replace(/^@/, ''))}</b>\n• Jual: ${rp(t.jual)}/gr\n• Buyback: ${rp(t.buyback)}/gr`;
   s += '\n';
   if (t.wa) s += `\n📲 Pesan: https://wa.me/${esc(t.wa)}`;
   if (L.wa) s += `\n🔔 Channel WA: ${esc(L.wa)}`;
@@ -75,6 +74,34 @@ function teksAntamLengkap(D, G) { // cadangan bila gambar gagal
   const a = D.antam, d = a.beli - (a.prevBeli || 0), off = g => Number(a.offset?.[String(g)]) || 0;
   const tabel = AG.map(g => `${gL(g).padEnd(7)} ${rp(a.beli * g + off(g)).padStart(17)}${a.prevBeli ? '  ' + kF(d * g) : ''}`).join('\n');
   return capAntam(D).split('\n\n📋')[0] + `\n\n📋 <b>Daftar Harga Emas Batangan</b>\n<pre>${tabel}</pre>` + (G.xau ? `\n🌍 XAUUSD $${usd(G.xau)} · Kurs ${rp(G.kurs)}` : '') + kaki(D, false);
+}
+/* harga toko yang diisi manual oleh admin di aplikasi (menu "Harga toko ke channel") */
+const waktuWIB = ms => { const d = new Date(ms + 7 * 3600e3); return { tgl: d.toISOString().slice(0, 10), jam: d.toISOString().slice(11, 16).replace(':', '.') }; };
+const gLb = g => g >= 1000 ? (g / 1000) + ' kg' : String(g).replace('.', ',') + ' gr';
+function capToko(D) {
+  const f = D.toko.info, w = waktuWIB(f.ver), J = f.kolom !== 'b', B = f.kolom !== 'j', n = v => v ? Math.round(v).toLocaleString('id-ID') : '–';
+  const R = f.rows, lb = Math.max(...R.map(r => gLb(r.g).length)), lj = Math.max(4, ...R.map(r => n(r.j).length)), lbb = Math.max(7, ...R.map(r => n(r.b).length));
+  const head = 'Berat'.padEnd(lb) + (J ? '  ' + 'Jual'.padStart(lj) : '') + (B ? '  ' + 'Buyback'.padStart(lbb) : '');
+  const rows = R.map(r => gLb(r.g).padEnd(lb) + (J ? '  ' + n(r.j).padStart(lj) : '') + (B ? '  ' + n(r.b).padStart(lbb) : '')).join('\n');
+  return `🏪 <b>${esc(String(f.judul || 'Harga Emas').toUpperCase())}</b>\n🗓️ ${hari(w.tgl)} · ⏰ ${w.jam} WIB\n🥇 Emas ${esc(f.merek || '')} · harga per keping (Rp)\n\n<pre>${esc(head)}\n${esc(rows)}</pre>` +
+    (f.catatan ? `\n📝 ${esc(f.catatan)}` : '') + kaki(D, true).replace('Proyeksi hanya perkiraan, bukan saran investasi.', 'Hubungi kami untuk ketersediaan stok.');
+}
+function gambarToko(D) {
+  const { c, x, nama } = dasar(D), f = D.toko.info, w = waktuWIB(f.ver), J = f.kolom !== 'b', B = f.kolom !== 'j', R = f.rows;
+  T(x, 'HARGA EMAS TOKO', 60, 95, 52, '#f3d98b', 'left', 'bold'); T(x, String(nama).replace(/^@/, '') + ' · Emas ' + (f.merek || ''), 60, 145, 32, '#f2ede2');
+  T(x, hari(w.tgl) + ' · ' + w.jam + ' WIB', 60, 190, 28, '#a39a86');
+  const rh = Math.min(90, Math.floor(760 / Math.max(R.length, 1))), y0 = 320, cj = B ? 660 : 990;
+  T(x, 'Berat', 90, 285, 28, '#a39a86'); if (J) T(x, 'Harga jual', cj, 285, 28, '#a39a86', 'right'); if (B) T(x, 'Buyback', 990, 285, 28, '#a39a86', 'right');
+  R.forEach((r, i) => {
+    const y = y0 + i * rh, ty = y + rh / 2 + 8; x.fillStyle = i % 2 ? 'rgba(216,176,76,.05)' : 'rgba(216,176,76,.12)'; x.fillRect(60, y, 960, rh - 8);
+    T(x, gLb(r.g), 90, ty, 38, '#f2ede2', 'left', 'bold');
+    if (J) T(x, r.j ? 'Rp ' + Math.round(r.j).toLocaleString('id-ID') : '–', cj, ty, 38, '#f3d98b', 'right', 'bold');
+    if (B) T(x, r.b ? 'Rp ' + Math.round(r.b).toLocaleString('id-ID') : '–', 990, ty, J ? 34 : 38, J ? '#f2ede2' : '#f3d98b', 'right', J ? '' : 'bold');
+  });
+  let y = y0 + R.length * rh + 50; if (f.catatan) { T(x, String(f.catatan).slice(0, 60), 540, y, 30, '#f3d98b', 'center', 'bold'); y += 50; }
+  T(x, 'Harga per keping, dapat berubah sewaktu-waktu', 540, Math.max(y, 1230), 26, '#a39a86', 'center');
+  pita(x, D); logoAt(x, 890, 18, 140);
+  return c.toBuffer('image/png');
 }
 function proyeksi(D, G) {
   const a = D?.antam; if (!a?.spotRef || !a.beli) return null;
@@ -139,8 +166,7 @@ function gambarAntam(D) {
     T(x, gL(g), 80, y, 34, '#f2ede2', 'left', 'bold'); T(x, 'Rp ' + Math.round(a.beli * g + off(g)).toLocaleString('id-ID'), 760, y, 34, '#f3d98b', 'right', 'bold');
     if (a.prevBeli) T(x, kF(d * g), 1000, y, 32, d < 0 ? red : d > 0 ? grn : '#a39a86', 'right');
   });
-  const y2 = 465 + AG.length * 60, t = D.toko || {};
-  if (t.tampil && t.jual) T(x, `Harga toko: jual ${rp(t.jual)}/gr · buyback ${rp(t.buyback)}/gr`, 540, y2 + 5, 27, '#f3d98b', 'center', 'bold');
+  const y2 = 465 + AG.length * 60;
   T(x, 'Harga referensi Antam, dapat berubah sewaktu-waktu', 540, y2 + 50, 26, '#a39a86', 'center');
   pita(x, D); logoAt(x, 890, 18, 140);
   return c.toBuffer('image/png');
@@ -381,6 +407,12 @@ async function main() {
       AK_BARU = evaluasiPrediksi(D);
       await kirim('antam', CV ? gambarAntam(D) : null, capAntam(D), teksAntamLengkap(D, G)); ST.antamKey = key; console.log('Terkirim: Antam');
     }
+  }
+  // 1b) harga toko yang dikirim admin dari aplikasi (sekali per pengiriman; abaikan yang sudah >2 hari)
+  const inf = D?.toko?.info;
+  if (inf?.ver && inf.rows?.length && inf.ver !== ST.infoVer) {
+    if (NOW.getTime() - inf.ver < 2 * 864e5) { await kirim('toko', CV ? gambarToko(D) : null, capToko(D), capToko(D)); console.log('Terkirim: harga toko'); }
+    ST.infoVer = inf.ver;
   }
   // 2) & 3) update global / pasar tutup
   if (G.xau && G.kurs) {
