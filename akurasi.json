@@ -7,12 +7,20 @@
    "actual": 2507000,
    "tepat": true,
    "err": 3000
+  },
+  {
+   "tgl": "2026-11-25",
+   "ref": 2507000,
+   "pred": 2471000,
+   "actual": 2499000,
+   "tepat": true,
+   "err": 28000
   }
  ],
  "ringkasan": {
-  "n": 1,
-  "tepat": 1,
-  "rataErr": 3000
+  "n": 2,
+  "tepat": 2,
+  "rataErr": 16000
  },
- "diperbarui": "2026-11-24T08:38:46.170Z"
+ "diperbarui": "2026-11-25T06:08:30.066Z"
 }
