@@ -1,15 +1,16 @@
 {
  "versi": 1,
- "diterbitkan": "2026-11-24T08:38:33.010Z",
+ "diterbitkan": "2026-11-25T06:08:16.675Z",
  "sumber": "aplikasi",
  "toko": {
   "nama": "@safehaven.assets",
   "wa": "6285716522215",
   "tampil": true,
-  "jual": 2522000,
-  "buyback": 2150000,
+  "jual": 2514000,
+  "buyback": 20910000,
   "manual": false,
   "tabel": null,
+  "info": null,
   "links": {
    "wa": "https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m",
    "tg": "https://t.me/safehavenassets1",
@@ -19,14 +20,14 @@
   "potBb": 0
  },
  "antam": {
-  "tgl": "2026-11-24",
-  "jam": "10.30",
-  "beli": 2507000,
-  "bb": 2150000,
-  "prevBeli": 2505000,
-  "prevBb": 2115000,
-  "spotRef": 2120914.9416112816,
-  "xauRef": 3620.050049,
+  "tgl": "2026-11-25",
+  "jam": "10.00",
+  "beli": 2499000,
+  "bb": 20910000,
+  "prevBeli": 2507000,
+  "prevBb": 2150000,
+  "spotRef": 2068377.567883444,
+  "xauRef": 3517.899902,
   "offset": {
    "1": 0,
    "2": -60000,
@@ -44,7 +45,7 @@
   "beta": {
    "b": 1,
    "bb": 1,
-   "n": 1
+   "n": 2
   },
   "riwayat": [
    {
@@ -58,6 +59,12 @@
     "beli": 2507000,
     "bb": 2150000,
     "spot": 2120915
+   },
+   {
+    "tgl": "2026-11-25",
+    "beli": 2499000,
+    "bb": 20910000,
+    "spot": 2068378
    }
   ]
  }
