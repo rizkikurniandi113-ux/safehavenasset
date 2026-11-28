@@ -92,6 +92,7 @@ function render(){
     <p class="mut">Perkiraan dari pergerakan XAUUSD & kurs sejak ${esc(a.jam)} WIB (est. ${j<0?'-':'+'}${rp(Math.abs(j))}/gr). Harga resmi bisa berbeda.</p>`:''}
   </div>
   ${t.tampil&&t.jual?`<div class="card"><h2>🏪 Harga ${esc(t.nama)}</h2><div class="grid"><div><span>Kami jual / gr</span><b>${rp(t.jual)}</b></div><div><span>Kami beli (buyback) / gr</span><b>${rp(t.buyback)}</b></div></div>
+   ${t.tabel&&t.info&&t.info.tgl?`<div class="mut" style="margin-top:6px">Harga toko per ${new Date(t.info.tgl+'T00:00').toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
    ${t.tabel?`<table style="margin-top:8px"><tr><th>Berat</th><th>Kami jual</th><th>Kami beli</th></tr>${Object.keys(t.tabel).sort((a,b)=>a-b).map(g=>`<tr><td>${gL(+g)}</td><td>${t.tabel[g].j?rp(t.tabel[g].j):'–'}</td><td>${t.tabel[g].b?rp(t.tabel[g].b):'–'}</td></tr>`).join('')}</table>`:''}</div>`:''}
   ${t.links?.wa?`<a class="wa" style="background:#d8b04c;color:#3a0707" href="${esc(t.links.wa)}">🔔 Ikuti Channel WhatsApp</a>`:''}
   ${t.links?.tg?`<a class="wa" style="background:#2aabee;color:#fff" href="${esc(t.links.tg)}">📢 Gabung Channel Telegram</a>`:''}
@@ -102,9 +103,12 @@ function render(){
     <select onchange="calcG=+this.value;render()">${AG.map(g=>`<option value="${g}" ${g===calcG?'selected':''}>${gL(g)}</option>`).join('')}</select>
     <table style="margin-top:8px"><tr><td>Harga beli Antam</td><td><b>${rp(antamG(calcG))}</b></td></tr><tr><td>Buyback Antam</td><td>${rp(a.bb*calcG)}</td></tr>
     ${t.tampil&&t.jual?(t.tabel&&t.tabel[String(calcG)]?`<tr><td>Harga jual kami</td><td><b>${rp(t.tabel[String(calcG)].j)}</b></td></tr><tr><td>Kami beli dari Anda</td><td>${rp(t.tabel[String(calcG)].b)}</td></tr>`:`<tr><td>Kami beli dari Anda</td><td>${rp(t.buyback*calcG)}</td></tr>`):''}</table></div>
+  ${testimoni()}
   ${akurasi()}
   ${grafik()}`;
 }
+function testimoni(){const L=((D.toko||{}).testi||[]).slice(-6).reverse();if(!L.length)return '';const e=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return `<div class="card"><h2>⭐ Kata pelanggan kami</h2>${L.map(t=>`<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="color:var(--gold)">${'★'.repeat(t.bintang||5)}${'☆'.repeat(5-(t.bintang||5))}</div><div style="margin:4px 0">"${e(t.isi)}"</div><div class="mut">— ${e(t.nama)}${t.kota?', '+e(t.kota):''}</div></div>`).join('')}</div>`}
 function akurasi(){const r=AKU&&AKU.ringkasan;if(!r||!r.n)return '';const L=(AKU.riwayat||[]).slice(-5).reverse();
   return `<div class="card"><h2>🎯 Akurasi prediksi</h2><div class="grid"><div><span>Arah tepat</span><b>${r.tepat}/${r.n} hari</b></div><div><span>Selisih rata-rata</span><b>${rp(r.rataErr)}</b></div></div>
   <table style="margin-top:8px"><tr><th>Tanggal</th><th>Prediksi</th><th>Resmi</th><th></th></tr>${L.map(x=>`<tr><td>${x.tgl.slice(8,10)}/${x.tgl.slice(5,7)}</td><td>${rp(x.pred)}</td><td>${rp(x.actual)}</td><td>${x.tepat?'✅':'❌'}</td></tr>`).join('')}</table>

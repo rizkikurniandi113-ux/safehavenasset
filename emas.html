@@ -297,6 +297,7 @@ function vPlg(){
    <div class="mut">${tr.length} pembelian · total ${rp(tr.reduce((a,t)=>a+t.harga,0))}${last?' · terakhir '+fmtTgl(last.tgl):''}${p.cat?' · '+esc(p.cat):''}</div>
    <div class="row" style="margin-top:6px"><button class="sec sm" onclick="formPlg('${p.id}')">Edit</button><button class="del sm" onclick="hapus('pelanggan','${p.id}')">Hapus</button></div></div>`}).join('')||'<p class="mut">Belum ada pelanggan.</p>'}
   <button class="sec sm" style="margin-top:8px" onclick="formPlg()">+ Pelanggan</button></div>
+  ${cardTesti()}
   ${vReminder()}`;
 }
 function waNum(h){h=String(h).replace(/\D/g,'');return h.startsWith('0')?'62'+h.slice(1):h}
@@ -482,6 +483,7 @@ function vCh(){const G=G_(),A=A_(),sp=spotG(),adj=estAdj(),c=ghCfg();
    <div class="row" style="margin-top:10px"><button class="sm" onclick="formAntam()">Update harga Antam</button>${A.beli?'<button class="sec sm" onclick="formKalibrasi()">Kalibrasi batangan</button>':''}</div></div>
 
   ${cardInfoCh()}
+  ${cardAgenda()}
   <div class="card"><h3>📣 Posting channel</h3>
    <div class="seg">${[['antam','Harga Antam'],['global','Update global'],['tutup','Pasar tutup']].map(([k,l])=>`<button class="${postJenis===k?'on':''}" onclick="postJenis='${k}';render()">${l}</button>`).join('')}</div>
    ${(postJenis==='antam'?A.beli:G.xau)?`<canvas id="post" width="1080" height="1350"></canvas>
@@ -588,7 +590,7 @@ function formGh(){const c=ghCfg();
     if(!d.owner||!d.repo||!d.token)return false;localStorage.setItem(GHK,JSON.stringify(Object.assign(c,{owner:d.owner.trim(),repo:d.repo.trim(),token:d.token.trim()})))},
   'Buat token di github.com → Settings → Developer settings → Fine-grained tokens. Pilih hanya repo ini, izin "Contents: Read and write". Token hanya disimpan di HP ini dan tidak ikut di file backup.')}
 function pubData(){const A=A_(),s=S.settings;
-  return {versi:1,diterbitkan:new Date().toISOString(),sumber:'aplikasi',toko:{nama:s.nama,wa:s.wa?waNum(s.wa):'',tampil:!!s.tampilToko,jual:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hJual('Antam',1)):0,buyback:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hBuyback('Antam',1)):0,manual:manualOn('Antam'),tabel:s.tampilToko&&infoPub()?Object.fromEntries(infoPub().rows.map(r=>[String(r.g),{j:r.j,b:r.b}])):s.tampilToko&&manualOn('Antam')?Object.fromEntries(GRAMS.map(g=>[String(g),{j:Math.round(hJual('Antam',g)),b:Math.round(hBuyback('Antam',g))}])):null,info:infoPub(),links:{wa:s.linkWA||'',tg:tgLink(),web:pageUrl()},margin:num(s.marginJual),potBb:num(s.potBbAntam)},
+  return {versi:1,diterbitkan:new Date().toISOString(),sumber:'aplikasi',toko:{nama:s.nama,wa:s.wa?waNum(s.wa):'',tampil:!!s.tampilToko,jual:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hJual('Antam',1)):0,buyback:s.tampilToko&&(A.beli||manualOn('Antam'))?Math.round(hBuyback('Antam',1)):0,manual:manualOn('Antam'),tabel:s.tampilToko&&infoPub()?Object.fromEntries(infoPub().rows.map(r=>[String(r.g),{j:r.j,b:r.b}])):s.tampilToko&&manualOn('Antam')?Object.fromEntries(GRAMS.map(g=>[String(g),{j:Math.round(hJual('Antam',g)),b:Math.round(hBuyback('Antam',g))}])):null,info:infoPub(),testi:testiPub(),testiKirim:S.settings.testiKirim||null,agenda:agendaPub(),links:{wa:s.linkWA||'',tg:tgLink(),web:pageUrl()},margin:num(s.marginJual),potBb:num(s.potBbAntam)},
     antam:{tgl:A.tgl,jam:A.jam,beli:A.beli,bb:A.bb,prevBeli:A.prevBeli,prevBb:A.prevBb,spotRef:A.spotRef,xauRef:A.xauRef,offset:s.offset,beta:betaCalc(),riwayat:A.riwayat.slice(-90)}}}
 async function publish(){const c=ghCfg();if(!c.token)return formGh();if(!A_().beli)return toast('Isi harga Antam dulu');
   toast('Menerbitkan…');
@@ -809,9 +811,10 @@ function htSimpan(m){const t={};let salah='';
 /* ---- Info harga toko ke channel (diisi manual oleh admin) ---- */
 const IC=()=>S.settings.infoCh||(S.settings.infoCh={judul:'',merek:'Antam',kolom:'jb',catatan:'',rows:{},ver:0,kirimAt:0,upd:0});
 const icRows=()=>{const ic=IC();return GRAMS.filter(g=>{const r=ic.rows[String(g)];return r&&((ic.kolom!=='b'&&r.j)||(ic.kolom!=='j'&&r.b))}).map(g=>({g,j:ic.kolom!=='b'?(ic.rows[String(g)].j||0):0,b:ic.kolom!=='j'?(ic.rows[String(g)].b||0):0}))};
+const icTgl=()=>{const u=IC().upd;if(!u)return '';const d=new Date(u);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const icJudul=()=>IC().judul||('Harga Emas '+String(S.settings.nama||'').replace(/^@/,''));
 function infoPub(){const ic=IC(),R=icRows();if(!R.length||!ic.ver)return null;
-  return {ver:ic.ver,upd:ic.upd||ic.ver,judul:icJudul(),merek:ic.merek,kolom:ic.kolom,catatan:ic.catatan||'',rows:R}}
+  return {ver:ic.ver,upd:ic.upd||ic.ver,tgl:icTgl(),judul:icJudul(),merek:ic.merek,kolom:ic.kolom,catatan:ic.catatan||'',rows:R}}
 function cardInfoCh(){const ic=IC(),R=icRows(),J=ic.kolom!=='b',B=ic.kolom!=='j';
   return `<div class="card"><h3>🏪 Harga toko ke channel</h3>
   ${R.length?`<p class="mut" style="margin-top:0">${esc(icJudul())} · ${esc(ic.merek)}</p><table><tr><th>Berat</th>${J?'<th>Harga jual</th>':''}${B?'<th>Buyback</th>':''}</tr>${R.map(r=>`<tr><td>${gLabel(r.g)}</td>${J?`<td>${r.j?rp(r.j):'–'}</td>`:''}${B?`<td>${r.b?rp(r.b):'–'}</td>`:''}</tr>`).join('')}</table>
@@ -884,6 +887,53 @@ function shareInfoCh(){const c=document.createElement('canvas');c.width=1080;c.h
   c.toBlob(async b=>{const f=new File([b],'harga-toko-'+today()+'.png',{type:'image/png'});
     try{if(navigator.canShare&&navigator.canShare({files:[f]})){toast('Teks tersalin, tempel sebagai keterangan');await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
     const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;a.click()})}
+
+/* ---- Testimoni pelanggan (tampil di channel sebagai video & di halaman publik) ---- */
+const TS=()=>S.testi||(S.testi=[]);
+const testiPub=()=>TS().filter(t=>t.izin==='ya'&&t.isi).map(t=>({id:t.id,nama:t.nama,kota:t.kota||'',isi:t.isi,bintang:+t.bintang||5,tgl:t.tgl}));
+const bintang=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+function cardTesti(){const L=TS();
+  return `<div class="card"><h3>⭐ Testimoni pelanggan (${L.length})</h3>
+  <p class="mut" style="margin-top:0">Testimoni yang sudah diizinkan pelanggan tampil di channel (video tiap Rabu sore) dan di halaman harga publik.</p>
+  ${L.slice().reverse().map(t=>`<div class="item"><div class="row"><b class="grow">${esc(t.nama)}${t.kota?' · '+esc(t.kota):''}</b><span style="color:var(--gold)">${bintang(+t.bintang||5)}</span></div>
+   <div class="mut">"${esc(t.isi)}"</div>
+   <div class="mut">${t.izin==='ya'?'✅ diizinkan tampil':'⏸️ belum diizinkan — tidak ditampilkan'}${S.settings.testiKirim?.id===t.id?' · terakhir dikirim ke channel':''}</div>
+   <div class="row" style="margin-top:6px"><button class="sec sm" onclick="formTesti('${t.id}')">Edit</button>${t.izin==='ya'?`<button class="sm" onclick="kirimTesti('${t.id}')">Kirim ke channel</button>`:''}<button class="del sm" onclick="hapusTesti('${t.id}')">Hapus</button></div></div>`).join('')||'<p class="mut">Belum ada testimoni.</p>'}
+  <button class="sec sm" style="margin-top:8px" onclick="formTesti()">+ Testimoni</button></div>`}
+function formTesti(id){const t=id?TS().find(x=>x.id===id):null;
+  const plg=[['','— ketik manual —'],...S.pelanggan.map(p=>[p.id,p.nama])];
+  form(t?'Edit testimoni':'Testimoni baru',[
+    {k:'plg',l:'Dari pelanggan (opsional)',t:'sel',o:plg,v:t?.plg||''},
+    {k:'nama',l:'Nama yang ditampilkan (boleh inisial, mis. "Bu R.")',v:t?.nama},
+    {k:'kota',l:'Kota (opsional)',v:t?.kota},
+    {k:'bintang',l:'Bintang',t:'sel',o:[['5','★★★★★ 5'],['4','★★★★☆ 4'],['3','★★★☆☆ 3']],v:t?.bintang||'5'},
+    {k:'isi',l:'Isi testimoni (maks. 220 huruf)',v:t?.isi},
+    {k:'izin',l:'Pelanggan setuju testimoninya dipublikasikan?',t:'sel',o:[['ya','Ya, sudah setuju'],['','Belum / tidak']],v:t?.izin??''},
+  ],d=>{if(!d.isi)return 'Isi testimoni dulu';if(!d.nama){const p=S.pelanggan.find(x=>x.id===d.plg);if(!p)return 'Isi nama yang ditampilkan';const w=p.nama.trim().split(/\s+/);d.nama=w.length>1?w[0]+' '+w[1][0]+'.':w[0]}
+    d.isi=d.isi.trim().slice(0,220);if(t)Object.assign(t,d);else TS().push({id:uid(),tgl:today(),...d});setTimeout(()=>terbitDiam('Testimoni'),300)},
+  'Minta izin pelanggan dulu sebelum testimoni dipublikasikan.')}
+function hapusTesti(id){if(!confirm('Hapus testimoni ini?'))return;S.testi=TS().filter(t=>t.id!==id);save();render();terbitDiam('Hapus testimoni')}
+async function kirimTesti(id){if(!confirm('Kirim testimoni ini ke channel sekarang (video)?'))return;const lama=S.settings.testiKirim;S.settings.testiKirim={id,ver:Date.now()};
+  if(!(await terbitDiam('Kirim testimoni',true))){S.settings.testiKirim=lama;save()}else toast('✓ Terkirim ke bot. Video muncul di channel ±1–3 menit')}
+async function terbitDiam(pesan,tampil){const c=ghCfg();if(!c.token){if(tampil){toast('Hubungkan ke GitHub dulu');formGh()}return false}
+  try{const data=pubData();if(!A_().beli){try{const r=JSON.parse(await ghGet('harga.json',true)||'{}');if(r.antam)data.antam=r.antam}catch(e){}}
+    await ghPut('harga.json',JSON.stringify(data,null,1),pesan+' '+today()+' '+jamNow());setGh({last:Date.now()});save();render();return true}
+  catch(e){if(tampil)toast('Gagal kirim: '+e.message);return false}}
+
+/* ---- Agenda ekonomi untuk hitung mundur di channel ---- */
+const AGD=()=>S.settings.agenda||(S.settings.agenda=[]);
+const agendaPub=()=>AGD().filter(a=>a.tgl&&a.jam&&a.nama).map(a=>({id:a.id,nama:a.nama,tgl:a.tgl,jam:a.jam,ket:a.ket||''}));
+function cardAgenda(){const now=today(),L=AGD().filter(a=>a.tgl>=now).sort((a,b)=>(a.tgl+a.jam)<(b.tgl+b.jam)?-1:1);
+  return `<div class="card"><h3>📅 Agenda ekonomi (hitung mundur)</h3>
+  <p class="mut" style="margin-top:0">Jadwal rapat suku bunga The Fed (FOMC) dan rilis inflasi AS (CPI) sudah otomatis. Tambahkan agenda lain di sini, mis. pengumuman BI Rate. Bot memposting pengingat H-1, video hitung mundur 3 jam sebelumnya, dan reaksi harga emas setelahnya.</p>
+  ${L.map(a=>`<div class="item"><div class="row"><b class="grow">${esc(a.nama)}</b><span class="mut">${fmtTgl(a.tgl)} ${esc(a.jam)} WIB</span></div>${a.ket?`<div class="mut">${esc(a.ket)}</div>`:''}
+   <div class="row" style="margin-top:6px"><button class="sec sm" onclick="formAgenda('${a.id}')">Edit</button><button class="del sm" onclick="hapusAgenda('${a.id}')">Hapus</button></div></div>`).join('')||'<p class="mut">Belum ada agenda tambahan.</p>'}
+  <button class="sec sm" style="margin-top:8px" onclick="formAgenda()">+ Agenda</button></div>`}
+function formAgenda(id){const a=id?AGD().find(x=>x.id===id):null;
+  form(a?'Edit agenda':'Agenda baru',[{k:'nama',l:'Nama acara (mis. Pengumuman BI Rate)',v:a?.nama},{k:'tgl',l:'Tanggal',t:'date',v:a?.tgl||today()},{k:'jam',l:'Jam WIB (mis. 14.30)',v:a?.jam||'14.30'},{k:'ket',l:'Keterangan singkat (opsional)',v:a?.ket}],
+  d=>{d.jam=String(d.jam||'').replace(':','.').trim();if(!d.nama||!d.tgl||!/^\d{1,2}\.\d{2}$/.test(d.jam))return 'Isi nama, tanggal, dan jam (format 14.30)';d.jam=d.jam.padStart(5,'0');
+    if(a)Object.assign(a,d);else AGD().push({id:uid(),...d});setTimeout(()=>terbitDiam('Agenda'),300)})}
+function hapusAgenda(id){if(!confirm('Hapus agenda ini?'))return;S.settings.agenda=AGD().filter(a=>a.id!==id);save();render();terbitDiam('Hapus agenda')}
 
 /* ---- Pengingat: harga Antam belum diupdate ---- */
 const antamTelat=()=>A_().tgl!==today()&&new Date().getHours()>=9;
