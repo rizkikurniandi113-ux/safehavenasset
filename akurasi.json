@@ -31,12 +31,20 @@
    "actual": 2501000,
    "tepat": false,
    "err": 33000
+  },
+  {
+   "tgl": "2026-11-28",
+   "ref": 2501000,
+   "pred": 2499000,
+   "actual": 2514000,
+   "tepat": false,
+   "err": 15000
   }
  ],
  "ringkasan": {
-  "n": 4,
+  "n": 5,
   "tepat": 3,
-  "rataErr": 29000
+  "rataErr": 26000
  },
- "diperbarui": "2026-11-27T05:54:29.326Z"
+ "diperbarui": "2026-11-28T03:51:35.033Z"
 }
