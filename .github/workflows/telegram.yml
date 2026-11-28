@@ -1,11 +1,11 @@
 name: Bot Harga Emas safehaven.assets
 
 on:
-  schedule:
-    - cron: "2,17,32,47 * * * *"   # dicek tiap 15 menit; update global tetap dikirim maks. 1x per jam
+  workflow_dispatch: {}            # dipicu cron-job.org tiap 10 menit (menit 09,19,29,…) + tombol "Run workflow"
   push:
-    paths: ["harga.json"]          # langsung kirim saat harga Antam diterbitkan dari aplikasi
-  workflow_dispatch: {}            # tombol "Run workflow" untuk tes manual
+    paths: ["harga.json"]          # langsung kirim saat harga Antam / harga toko diterbitkan dari aplikasi
+  schedule:
+    - cron: "4,34 * * * *"         # cadangan bila cron-job.org bermasalah (untuk Antam, perintah /antam, konten)
 
 concurrency:
   group: telegram-emas
@@ -18,7 +18,7 @@ permissions:
 jobs:
   kirim:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +26,16 @@ jobs:
         with:
           node-version: 20
 
+      - name: Cache pembuat gambar
+        id: cv
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: canvas-ffmpeg-v2-${{ runner.os }}
+
       - name: Pasang pembuat gambar
-        run: npm install --no-save --no-package-lock --no-audit --no-fund @napi-rs/canvas@1
+        if: steps.cv.outputs.cache-hit != 'true'
+        run: npm install --no-save --no-package-lock --no-audit --no-fund @napi-rs/canvas@1 ffmpeg-static@5
 
       - name: Ambil status terakhir
         uses: actions/cache/restore@v4
@@ -46,6 +54,11 @@ jobs:
           TWELVEDATA_KEY: ${{ secrets.TWELVEDATA_KEY }}
           QUIET_HOURS: ${{ vars.QUIET_HOURS }}
           WA_INTERVAL_JAM: ${{ vars.WA_INTERVAL_JAM }}
+          WA_INTERVAL_MENIT: ${{ vars.WA_INTERVAL_MENIT }}
+          WA_JAM_AKTIF: ${{ vars.WA_JAM_AKTIF }}
+          GLOBAL_MENIT: ${{ vars.GLOBAL_MENIT }}
+          KONTEN: ${{ vars.KONTEN }}
+          VIDEO: ${{ vars.VIDEO }}
           PAGE_URL: ${{ vars.PAGE_URL }}
         run: node scripts/telegram.mjs
 
@@ -82,7 +95,9 @@ jobs:
           TELEGRAM_ADMIN: ${{ secrets.TELEGRAM_ADMIN }}
         run: |
           if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_ADMIN" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-              --data-urlencode "chat_id=${TELEGRAM_ADMIN}" \
-              --data-urlencode "text=❌ Bot harga emas GAGAL berjalan. Lihat detail: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+            for id in $(echo "$TELEGRAM_ADMIN" | tr ',' ' '); do
+              curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+                --data-urlencode "chat_id=${id}" \
+                --data-urlencode "text=❌ Bot harga emas GAGAL berjalan. Lihat detail: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+            done
           fi
