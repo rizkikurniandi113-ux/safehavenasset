@@ -1,16 +1,80 @@
 {
  "versi": 1,
- "diterbitkan": "2026-11-28T03:51:21.488Z",
+ "diterbitkan": "2026-11-28T04:04:19.235Z",
  "sumber": "aplikasi",
  "toko": {
   "nama": "@safehaven.assets",
   "wa": "6285716522215",
   "tampil": true,
-  "jual": 2514000,
+  "jual": 2620000,
   "buyback": 2171000,
-  "manual": false,
-  "tabel": null,
-  "info": null,
+  "manual": true,
+  "tabel": {
+   "1": {
+    "j": 2620000,
+    "b": 0
+   },
+   "2": {
+    "j": 5070000,
+    "b": 0
+   },
+   "3": {
+    "j": 7510000,
+    "b": 0
+   },
+   "5": {
+    "j": 12390000,
+    "b": 0
+   },
+   "10": {
+    "j": 24540000,
+    "b": 0
+   },
+   "0.5": {
+    "j": 1420000,
+    "b": 0
+   }
+  },
+  "info": {
+   "ver": 1795838659235,
+   "upd": 1795838656580,
+   "judul": "Harga Antam 2026 - safehaven.assets",
+   "merek": "Antam",
+   "kolom": "j",
+   "catatan": "Stok Terbatas - COD only (Yadan bin Yadin)",
+   "rows": [
+    {
+     "g": 0.5,
+     "j": 1420000,
+     "b": 0
+    },
+    {
+     "g": 1,
+     "j": 2620000,
+     "b": 0
+    },
+    {
+     "g": 2,
+     "j": 5070000,
+     "b": 0
+    },
+    {
+     "g": 3,
+     "j": 7510000,
+     "b": 0
+    },
+    {
+     "g": 5,
+     "j": 12390000,
+     "b": 0
+    },
+    {
+     "g": 10,
+     "j": 24540000,
+     "b": 0
+    }
+   ]
+  },
   "links": {
    "wa": "https://whatsapp.com/channel/0029VbE1VFn4IBhGYlutXx2m",
    "tg": "https://t.me/safehavenassets1",
