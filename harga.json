@@ -1,13 +1,13 @@
 {
  "versi": 1,
- "diterbitkan": "2026-11-28T02:17:52.784Z",
+ "diterbitkan": "2026-11-28T03:51:21.488Z",
  "sumber": "aplikasi",
  "toko": {
   "nama": "@safehaven.assets",
   "wa": "6285716522215",
   "tampil": true,
-  "jual": 2516000,
-  "buyback": 2114000,
+  "jual": 2514000,
+  "buyback": 2171000,
   "manual": false,
   "tabel": null,
   "info": null,
@@ -16,18 +16,18 @@
    "tg": "https://t.me/safehavenassets1",
    "web": "https://safehaven-assets.github.io/safehavenasset/harga.html"
   },
-  "margin": 15000,
+  "margin": 0,
   "potBb": 0
  },
  "antam": {
-  "tgl": "2026-11-27",
-  "jam": "10.00",
-  "beli": 2501000,
-  "bb": 2114000,
+  "tgl": "2026-11-28",
+  "jam": "10.50",
+  "beli": 2514000,
+  "bb": 2171000,
   "prevBeli": 2501000,
-  "prevBb": 2091000,
-  "spotRef": 2157108.907561099,
-  "xauRef": 3652.5,
+  "prevBb": 2114000,
+  "spotRef": 2154748.1355846366,
+  "xauRef": 3650,
   "offset": {
    "1": 0,
    "2": -60000,
@@ -77,6 +77,12 @@
     "beli": 2501000,
     "bb": 2114000,
     "spot": 2157109
+   },
+   {
+    "tgl": "2026-11-28",
+    "beli": 2514000,
+    "bb": 2171000,
+    "spot": 2154748
    }
   ]
  }
