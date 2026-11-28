@@ -1,4 +1,5 @@
-// Bot harga emas @safehaven.assets — dijalankan GitHub Actions tiap 15 menit (posting global tetap maks. 1x per jam).
+// Bot harga emas @safehaven.assets — dipicu tiap 10 menit (cron-job.org → workflow_dispatch), menunggu sampai
+// tepat menit :00/:10/:20/… WIB lalu memposting update global. Juga: harga Antam, harga toko, dan konten harian.
 // Mengirim GAMBAR + keterangan ke Telegram (dan Channel WA via Whapi, opsional):
 //   (1) harga Antam saat ada update baru di harga.json,
 //   (2) update harga global (XAUUSD + kurs) tiap ±1 jam selama pasar buka,
@@ -9,9 +10,14 @@ const TOKEN = process.env.TELEGRAM_TOKEN;
 const CHAT = process.env.TELEGRAM_CHAT;
 const WHAPI = process.env.WHAPI_TOKEN, WA_CH = process.env.WA_CHANNEL;
 const TDKEY = (process.env.TWELVEDATA_KEY || '').trim();
-const WA_JAM = Math.max(1, Number(process.env.WA_INTERVAL_JAM) || 1); // jarak minimal update global ke Channel WA (jam)
+const PERIODE = Math.max(5, Number(process.env.GLOBAL_MENIT) || 10);                     // update global tiap N menit (tepat di kelipatan N)
+const WA_MENIT = Math.max(10, Number(process.env.WA_INTERVAL_MENIT) || (Number(process.env.WA_INTERVAL_JAM) || 1) * 60); // jarak update global ke Channel WA
+const WA_AKTIF = (process.env.WA_JAM_AKTIF || '7-21').trim();                              // jam WIB update global boleh dikirim ke WA
+const KONTEN = (process.env.KONTEN || 'pagi,polling,edukasi,alert,rekor,andai,testi,agenda').toLowerCase().split(/[,\s]+/);
+const TELAT_MAKS = 4 * 60e3;                                                               // jadwal yang terlewat > 4 menit tidak dikirim (biar tidak telat)
 const ADMINS = String(process.env.TELEGRAM_ADMIN || '').split(/[,\s]+/).map(x => x.trim()).filter(Boolean); // ID Telegram admin, pisahkan koma bila >1
-const NOW = process.env.MOCK_NOW ? new Date(process.env.MOCK_NOW) : new Date();
+let NOW = process.env.MOCK_NOW ? new Date(process.env.MOCK_NOW) : new Date();
+const MOCK = !!process.env.MOCK_NOW;
 let ST = {}, AK = { riwayat: [] }, ADMIN_MSG = [];
 const STATE = process.env.STATE_FILE || '.tg-state/state.json';
 const DRY = process.env.DRY_RUN === '1';
@@ -83,12 +89,12 @@ function capToko(D) {
   const R = f.rows, lb = Math.max(...R.map(r => gLb(r.g).length)), lj = Math.max(4, ...R.map(r => n(r.j).length)), lbb = Math.max(7, ...R.map(r => n(r.b).length));
   const head = 'Berat'.padEnd(lb) + (J ? '  ' + 'Jual'.padStart(lj) : '') + (B ? '  ' + 'Buyback'.padStart(lbb) : '');
   const rows = R.map(r => gLb(r.g).padEnd(lb) + (J ? '  ' + n(r.j).padStart(lj) : '') + (B ? '  ' + n(r.b).padStart(lbb) : '')).join('\n');
-  return `🏪 <b>${esc(String(f.judul || 'Harga Emas').toUpperCase())}</b>\n🗓️ ${hari(w.tgl)} · ⏰ ${w.jam} WIB\n🥇 Emas ${esc(f.merek || '')} · harga per keping (Rp)\n\n<pre>${esc(head)}\n${esc(rows)}</pre>` +
+  return `🏪 <b>${esc(String(f.judul || 'Harga Emas').toUpperCase())} HARI INI</b>\n🗓️ ${hari(w.tgl)} · ⏰ ${w.jam} WIB\n🥇 Emas ${esc(f.merek || '')} · harga per keping (Rp), berlaku hari ini\n\n<pre>${esc(head)}\n${esc(rows)}</pre>` +
     (f.catatan ? `\n📝 ${esc(f.catatan)}` : '') + kaki(D, true).replace('Proyeksi hanya perkiraan, bukan saran investasi.', 'Hubungi kami untuk ketersediaan stok.');
 }
 function gambarToko(D) {
   const { c, x, nama } = dasar(D), f = D.toko.info, w = waktuWIB(f.ver), J = f.kolom !== 'b', B = f.kolom !== 'j', R = f.rows;
-  T(x, 'HARGA EMAS TOKO', 60, 95, 52, '#f3d98b', 'left', 'bold'); T(x, String(nama).replace(/^@/, '') + ' · Emas ' + (f.merek || ''), 60, 145, 32, '#f2ede2');
+  T(x, 'HARGA TOKO HARI INI', 60, 95, 50, '#f3d98b', 'left', 'bold'); T(x, String(nama).replace(/^@/, '') + ' · Emas ' + (f.merek || ''), 60, 145, 32, '#f2ede2');
   T(x, hari(w.tgl) + ' · ' + w.jam + ' WIB', 60, 190, 28, '#a39a86');
   const rh = Math.min(90, Math.floor(760 / Math.max(R.length, 1))), y0 = 320, cj = B ? 660 : 990;
   T(x, 'Berat', 90, 285, 28, '#a39a86'); if (J) T(x, 'Harga jual', cj, 285, 28, '#a39a86', 'right'); if (B) T(x, 'Buyback', 990, 285, 28, '#a39a86', 'right');
@@ -108,10 +114,14 @@ function proyeksi(D, G) {
   const adj = spotOf(G) - a.spotRef, be = a.beta || { b: 1, bb: 1 };
   return { adj, beli: rnd(a.beli + be.b * adj), bb: rnd(a.bb + be.bb * adj) };
 }
-function capGlobal(D, G, tutup) {
-  const a = D?.antam, pj = proyeksi(D, G), xc = a?.xauRef ? (G.xau - a.xauRef) / a.xauRef : null;
+function capGlobal(D, G, tutup, ringkas) {
+  const a = D?.antam, pj = proyeksi(D, G), xc = a?.xauRef ? (G.xau - a.xauRef) / a.xauRef : null, L = ST.lastG;
   let s = `${tutup ? '🔔 <b>Pasar tutup.</b>' : '🌍 <b>UPDATE HARGA EMAS GLOBAL</b>'}\n🗓️ ${hari(tglWIB())} · ⏰ ${jamWIB()} WIB\n\n` +
     `• XAUUSD: $${usd(G.xau)}/oz${xc !== null ? ` (${xc < 0 ? '▼' : '▲'} ${pct(Math.abs(xc))})` : ''}\n• Kurs: ${rp(G.kurs)}\n• Spot: ${rp(spotOf(G))}/gr`;
+  if (!tutup && L?.x && NOW.getTime() - L.t < 3 * 3600e3) {
+    const dx = G.xau - L.x, mnt = Math.round((NOW.getTime() - L.t) / 60e3), dsp = spotOf(G) - L.x * L.k / OZ;
+    s += `\n⏱️ ${mnt} menit terakhir: ${Math.abs(dx) < 0.005 ? '= tetap' : `${dx > 0 ? '▲' : '▼'} $${usd(Math.abs(dx))} (${pct(Math.abs(dx) / L.x)})`} · spot ${dsp >= 0 ? '+' : '-'}${rp(Math.abs(dsp))}/gr`;
+  }
   if (pj) {
     s += `\n\nEmas ${pj.adj < 0 ? '📉 melemah' : '📈 menguat'} <b>${rp(Math.abs(pj.adj))}/gr</b> sejak update Antam ${esc(refAntam(a))}.`;
     const kRef = a.xauRef ? a.spotRef * OZ / a.xauRef : 0;
@@ -119,6 +129,7 @@ function capGlobal(D, G, tutup) {
     const db = pj.beli - a.beli, arah = Math.abs(db) < 1000 ? '⚪ <b>CENDERUNG TETAP</b>' : db > 0 ? `🔺 <b>CENDERUNG NAIK</b> ±${rp(db)}` : `🔻 <b>CENDERUNG TURUN</b> ±${rp(-db)}`;
     s += `\n\n🔮 <b>Prediksi harga Antam berikutnya:</b> ${arah}\n• Beli ±${rp(pj.beli)} · Buyback ±${rp(pj.bb)}\n<i>(dari harga resmi ${esc(refAntam(a))}: beli ${rp(a.beli)})</i>`;
   }
+  if (ringkas) return s + (PAGE(D) ? `\n\n🌐 ${esc(PAGE(D))}` : '') + '\n<i>Proyeksi hanya perkiraan, bukan saran investasi.</i>';
   return s + kaki(D, true);
 }
 
@@ -204,14 +215,17 @@ const keWA = t => t.replace(/<pre>([\s\S]*?)<\/pre>/g, '```$1```').replace(/<\/?
 async function tg(method, body, isForm) {
   const r = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, isForm ? { method: 'POST', body } : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const j = await r.json(); if (!j.ok) throw new Error('Telegram: ' + j.description);
+  return j.result;
 }
-async function wa(img, caption, textFull) {
+async function wa(img, caption, textFull, vid) {
   if (!WHAPI || !WA_CH) return false;
-  const body = img ? { to: WA_CH, media: 'data:image/png;base64,' + img.toString('base64'), caption: keWA(caption) } : { to: WA_CH, body: keWA(textFull) };
+  const jenis = vid ? 'video' : img ? 'image' : 'text';
+  const body = vid ? { to: WA_CH, media: 'data:video/mp4;base64,' + vid.toString('base64'), caption: keWA(caption) }
+    : img ? { to: WA_CH, media: 'data:image/png;base64,' + img.toString('base64'), caption: keWA(caption) } : { to: WA_CH, body: keWA(textFull) };
   for (const tunggu of [0, 1000, 2000, 4000]) {
     if (tunggu) await new Promise(r => setTimeout(r, tunggu));
     try {
-      const r = await fetch('https://gate.whapi.cloud/messages/' + (img ? 'image' : 'text'), { method: 'POST', headers: { authorization: 'Bearer ' + WHAPI, 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(body) });
+      const r = await fetch('https://gate.whapi.cloud/messages/' + jenis, { method: 'POST', headers: { authorization: 'Bearer ' + WHAPI, 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) return true;
       const t = (await r.text()).slice(0, 200);
       if (r.status === 429 || r.status >= 500) { console.log('WA dibatasi/sibuk, coba lagi:', r.status); continue; }
@@ -220,17 +234,22 @@ async function wa(img, caption, textFull) {
   }
   return false;
 }
-async function kirim(nama, img, caption, textFull, keWa = true) {
+async function kirim(nama, img, caption, textFull, keWa = true, senyap = false, vid = null) {
   if (caption.length > 1024) caption = caption.slice(0, 1000) + '…';
-  if (DRY) { console.log(`--- ${nama} ${img ? '(gambar ' + Math.round(img.length / 1024) + ' KB)' : '(teks)'} → Telegram${keWa && WHAPI ? ' + WA' : ''} ---\n${img ? caption : textFull}\n`); if (OUT && img) fs.writeFileSync(`${OUT}/${nama}.png`, img); return; }
-  if (keWa && WHAPI && WA_CH && !(await wa(img, caption, textFull))) lapor('wa', `⚠️ Posting "${nama}" <b>gagal terkirim ke Channel WA</b> (Whapi). Telegram tetap jalan. Cek token/koneksi nomor di whapi.cloud.`);
+  if (DRY) { console.log(`--- ${nama} ${vid ? '(VIDEO ' + Math.round(vid.length / 1024) + ' KB)' : img ? '(gambar ' + Math.round(img.length / 1024) + ' KB)' : '(teks)'} → Telegram${senyap ? ' (senyap)' : ''}${keWa && WHAPI ? ' + WA' : ''} · ${jamWIB()} WIB ---\n${img || vid ? caption : textFull}\n`); if (OUT && img) fs.writeFileSync(`${OUT}/${nama}.png`, img); if (OUT && vid) fs.writeFileSync(`${OUT}/${nama}.mp4`, vid); return; }
+  if (keWa && WHAPI && WA_CH && !(await wa(img, caption, textFull, vid))) lapor('wa', `⚠️ Posting "${nama}" <b>gagal terkirim ke Channel WA</b> (Whapi). Telegram tetap jalan. Cek token/koneksi nomor di whapi.cloud.`);
   if (!TOKEN || !CHAT) return;
   try {
+    if (vid) {   // dengan musik → video biasa; tanpa musik → animasi yang otomatis berputar
+      try { const f = new FormData(), field = vid.musik ? 'video' : 'animation'; f.append('chat_id', CHAT); f.append('caption', caption); f.append('parse_mode', 'HTML'); f.append('width', '720'); f.append('height', '900');
+        if (vid.musik) f.append('supports_streaming', 'true'); if (senyap) f.append('disable_notification', 'true'); f.append(field, new Blob([vid], { type: 'video/mp4' }), nama + '.mp4'); await tg(vid.musik ? 'sendVideo' : 'sendAnimation', f, true); return; }
+      catch (e) { console.log('Video gagal, kirim gambar/teks:', e.message); }
+    }
     if (img) {
-      try { const f = new FormData(); f.append('chat_id', CHAT); f.append('caption', caption); f.append('parse_mode', 'HTML'); f.append('photo', new Blob([img], { type: 'image/png' }), nama + '.png'); await tg('sendPhoto', f, true); return; }
+      try { const f = new FormData(); f.append('chat_id', CHAT); f.append('caption', caption); f.append('parse_mode', 'HTML'); if (senyap) f.append('disable_notification', 'true'); f.append('photo', new Blob([img], { type: 'image/png' }), nama + '.png'); await tg('sendPhoto', f, true); return; }
       catch (e) { console.log('Foto gagal, kirim teks:', e.message); }
     }
-    await tg('sendMessage', { chat_id: CHAT, text: textFull, parse_mode: 'HTML', disable_web_page_preview: true });
+    await tg('sendMessage', { chat_id: CHAT, text: textFull, parse_mode: 'HTML', disable_web_page_preview: true, disable_notification: senyap });
   } catch (e) { lapor('tg', `⚠️ Posting "${nama}" <b>gagal terkirim ke Telegram</b>: ${esc(e.message)}. Pastikan bot masih admin channel.`); }
 }
 
@@ -383,6 +402,198 @@ function gambarRekap(D, W) {
   return c.toBuffer('image/png');
 }
 
+/* ---------------- konten channel (biar tidak monoton) ---------------- */
+const aktif = k => KONTEN.includes(k.toLowerCase()) && !KONTEN.includes('off');
+const TIPS = [
+  ['Kenapa harga emas ikut naik saat rupiah melemah?', 'Harga emas dunia (XAUUSD) dihitung dalam dolar. Saat rupiah melemah, harga emas dalam rupiah ikut naik walaupun XAUUSD diam. Jadi pantau dua-duanya: XAUUSD dan kurs.'],
+  ['Apa itu troy ounce?', 'Harga emas dunia memakai satuan troy ounce (oz). 1 oz = 31,1035 gram. Rumus kasar harga per gram: XAUUSD × kurs ÷ 31,1035.'],
+  ['Apa itu spread?', 'Spread adalah selisih harga beli dan harga buyback. Karena ada spread, emas yang baru dibeli biasanya belum untung kalau langsung dijual. Emas cocok untuk tabungan jangka menengah–panjang.'],
+  ['Keping kecil vs keping besar', 'Harga per gram keping kecil (0,5–1 gr) lebih mahal karena biaya cetak. Keping besar lebih efisien, tapi keping kecil lebih fleksibel kalau suatu saat perlu dijual sebagian.'],
+  ['Jaga kemasan & sertifikat', 'Jangan buka atau merusak kemasan dan sertifikat emas batangan. Kondisi kemasan memengaruhi kemudahan dan harga saat dijual kembali.'],
+  ['Cek keaslian kemasan CertiEye', 'Emas Antam keluaran baru memakai kemasan CertiEye yang keasliannya bisa dicek lewat aplikasi CertiEye. Biasakan cek saat menerima emas.'],
+  ['Beli rutin sedikit-sedikit', 'Strategi menabung rutin (misalnya tiap gajian) membuat harga beli rata-rata lebih stabil, tanpa harus menebak waktu terbaik untuk membeli.'],
+  ['Dana darurat dulu', 'Sebelum menabung emas, siapkan dana darurat dalam bentuk yang mudah dicairkan. Emas lebih cocok untuk tujuan jangka panjang.'],
+  ['Jangan beli emas pakai utang', 'Harga emas bisa turun dalam jangka pendek. Membeli dengan pinjaman berbunga bisa membuat rugi dobel. Gunakan dana dingin.'],
+  ['Apa yang menggerakkan harga emas?', 'Beberapa penggerak utama: suku bunga bank sentral AS (The Fed), inflasi, nilai dolar, ketegangan geopolitik, dan pembelian emas oleh bank sentral dunia.'],
+  ['Emas & dolar AS', 'Harga emas sering bergerak berlawanan dengan dolar AS. Saat dolar menguat, emas cenderung tertekan, walau tidak selalu.'],
+  ['Pasar emas libur akhir pekan', 'Pasar emas dunia buka hampir 24 jam di hari kerja dan tutup dari Sabtu pagi sampai Senin pagi WIB. Karena itu harga global tidak bergerak saat akhir pekan.'],
+  ['Kadar 999,9 artinya apa?', 'Emas batangan Antam berkadar 999,9 atau 99,99% emas murni (24 karat). Angka ini tertulis di sertifikat dan kemasan.'],
+  ['Perhiasan vs batangan', 'Perhiasan punya ongkos pembuatan dan biasanya dipotong saat dijual kembali. Untuk tabungan atau investasi, emas batangan lebih efisien.'],
+  ['Simpan di tempat aman', 'Simpan emas fisik di brankas tahan api atau safe deposit box. Hindari menyimpan semuanya di satu tempat yang mudah ditebak.'],
+  ['Catat setiap pembelian', 'Catat tanggal, harga, gramasi, dan nomor seri setiap keping. Catatan ini memudahkan menghitung untung-rugi dan sebagai bukti kepemilikan.'],
+  ['Simpan nota pembelian', 'Nota atau bukti pembelian membantu saat menjual kembali dan menjadi bukti keabsahan transaksi.'],
+  ['Harga referensi vs harga final', 'Harga di channel adalah referensi. Selalu konfirmasi harga final dan stok sebelum transfer.'],
+  ['Waspada penipuan', 'Hati-hati dengan tawaran emas jauh di bawah harga pasar. Transfer hanya ke rekening resmi penjual yang sudah Anda verifikasi.'],
+  ['Jangan panik saat harga turun', 'Penurunan jangka pendek itu wajar. Lihat tren dalam hitungan bulan atau tahun, bukan hari.'],
+  ['Merek berbeda, harga berbeda', 'Antam, UBS, dan Galeri24 punya harga beli dan buyback masing-masing. Perhatikan merek saat membandingkan harga.'],
+  ['Kapan harga Antam diperbarui?', 'Harga resmi Antam umumnya diperbarui pagi hari, dan kadang berubah lagi di siang hari saat pasar bergerak kencang. Pantau channel ini untuk update terbaru.'],
+  ['Emas digital vs fisik', 'Emas digital praktis untuk menabung nominal kecil. Pastikan platformnya berizin dan diawasi otoritas resmi.'],
+  ['Jangan taruh semua di satu keranjang', 'Emas bagus untuk melindungi nilai, tapi sebaiknya dikombinasikan dengan tabungan dan instrumen lain sesuai tujuan keuangan.'],
+  ['Membaca prediksi di channel ini', 'Prediksi arah harga Antam di channel ini adalah perkiraan dari gerak XAUUSD dan kurs, bukan kepastian. Gunakan sebagai gambaran saja.'],
+  ['Pajak emas batangan', 'Transaksi emas batangan dapat dikenakan pajak (PPh). Tarif tanpa NPWP biasanya lebih tinggi, jadi siapkan data NPWP/NIK saat bertransaksi besar.'],
+  ['Kenapa harga beli tiap gramasi tidak sekadar dikali?', 'Harga 5 gr tidak persis 5 × harga 1 gr karena biaya cetak per keping berbeda. Itu sebabnya daftar harga selalu ditulis per keping.'],
+  ['Tujuan dulu, baru beli', 'Tentukan tujuan menabung emas: dana pendidikan, menikah, atau pensiun. Tujuan membantu menentukan berapa gram dan berapa lama menabung.'],
+  ['Inflasi & emas', 'Dalam jangka panjang emas sering dipakai untuk menjaga nilai uang dari inflasi. Dalam jangka pendek harganya tetap bisa naik turun.'],
+  ['Cek berat & nomor seri', 'Saat menerima emas, cocokkan berat, nomor seri di keping, dan nomor di sertifikat. Pastikan semuanya sama.'],
+];
+const dekatJam = (ms) => { const W = ST.hist.filter(h => Math.abs(h.t - ms) < 20 * 60e3).sort((p, q) => Math.abs(p.t - ms) - Math.abs(q.t - ms)); return W[0]; };
+async function konten(D, G) {
+  if (jamSunyi()) return;
+  ST.k = ST.k || {};
+  const w = wib(), hm = w.getUTCHours() * 60 + w.getUTCMinutes(), dow = w.getUTCDay(), hr = tglWIB(), a = D?.antam;
+  const waktunya = (k, mulai, selesai) => aktif(k) && hm >= mulai && hm < selesai && ST.k[k] !== hr;
+  // ☀️ Kabar pagi (Senin–Sabtu 07.00–09.00)
+  if (dow >= 1 && dow <= 6 && G.xau && waktunya('pagi', 420, 540)) {
+    const kemarin = dekatJam(NOW.getTime() - 864e5), pj = proyeksi(D, G);
+    let s = `☀️ <b>KABAR PAGI EMAS</b>\n🗓️ ${hari(hr)}\n\n• XAUUSD: $${usd(G.xau)}/oz`;
+    if (kemarin) { const d = (G.xau - kemarin.x) / kemarin.x; s += ` (${d >= 0 ? '▲' : '▼'} ${pct(Math.abs(d))} dari kemarin)`; }
+    s += `\n• Kurs: ${rp(G.kurs)}${kemarin ? ` (${G.kurs >= kemarin.k ? 'rupiah melemah' : 'rupiah menguat'} ${Math.round(Math.abs(G.kurs - kemarin.k)).toLocaleString('id-ID')} poin)` : ''}`;
+    if (pj && a?.beli) s += `\n\n🔮 Perkiraan harga Antam pagi ini: beli ±<b>${rp(pj.beli)}</b> (${pj.beli > a.beli ? 'cenderung naik' : pj.beli < a.beli ? 'cenderung turun' : 'cenderung tetap'} dari ${rp(a.beli)}).`;
+    s += `\n\n⏰ Harga resmi Antam akan kami posting begitu keluar. Selamat beraktivitas! 💪` + kaki(D, true);
+    const vP = await video('pagi', { tgl: hari(hr), xau: G.xau, dx: kemarin ? (G.xau - kemarin.x) / kemarin.x : null, kurs: G.kurs, pBeli: pj && a?.beli ? pj.beli : 0, ref: a?.beli || 0 });
+    await kirim('pagi', null, s, s, dalamJam(WA_AKTIF), false, vP); ST.k.pagi = hr; console.log('Terkirim: kabar pagi');
+  }
+  // 🎯 Tebak harga (Senin–Sabtu 12.00–15.00, setelah harga Antam hari ini keluar) — polling Telegram
+  if (dow >= 1 && dow <= 6 && a?.beli && a.tgl === hr && waktunya('polling', 720, 900) && TOKEN && CHAT) {
+    const q = `🎯 Tebak harga! Harga beli Antam saat ini ${rp(a.beli)}/gr. Di update berikutnya naik atau turun?`;
+    let msg = null;
+    if (DRY) console.log('--- polling ---\n' + q + '\n[📈 Naik] [📉 Turun] [➖ Tetap]\n');
+    else msg = await tg('sendPoll', { chat_id: CHAT, question: q, options: [{ text: '📈 Naik' }, { text: '📉 Turun' }, { text: '➖ Tetap' }], is_anonymous: true, disable_notification: true });
+    ST.poll = { tgl: hr, ref: a.beli, msg: msg?.message_id || 0 }; ST.k.polling = hr; console.log('Terkirim: polling tebak harga');
+  }
+  // 💡 Edukasi (setiap hari 19.30–21.30)
+  if (waktunya('edukasi', 1170, 1290)) {
+    const i = Math.floor(NOW.getTime() / 864e5) % TIPS.length, [jdl, isi] = TIPS[i];
+    const s = `💡 <b>EDUKASI EMAS #${i + 1}</b>\n\n<b>${esc(jdl)}</b>\n${esc(isi)}\n\nAda pertanyaan seputar emas? Tanya kami lewat WhatsApp 👇` + kaki(D, true).replace('Proyeksi hanya perkiraan, bukan saran investasi.', 'Informasi edukasi, bukan saran investasi.');
+    const vE = await video('edukasi', { no: i + 1, judul: jdl, isi });
+    await kirim('edukasi', null, s, s, true, false, vE); ST.k.edukasi = hr; console.log('Terkirim: edukasi');
+  }
+  // ⚡ Alert gerak cepat: XAUUSD bergerak ≥1% dalam ±1 jam (maks. sekali per 3 jam)
+  if (aktif('alert') && G.xau && NOW.getTime() - (ST.alertAt || 0) > 3 * 3600e3) {
+    const satuJam = dekatJam(NOW.getTime() - 3600e3);
+    if (satuJam) {
+      const d = (G.xau - satuJam.x) / satuJam.x;
+      if (Math.abs(d) >= 0.01) {
+        const dsp = spotOf(G) - satuJam.x * satuJam.k / OZ;
+        const s = `⚡ <b>EMAS BERGERAK CEPAT!</b>\n⏰ ${jamWIB()} WIB\n\nDalam 1 jam terakhir XAUUSD ${d > 0 ? '📈 NAIK' : '📉 TURUN'} <b>${pct(Math.abs(d))}</b> ($${usd(satuJam.x)} → $${usd(G.xau)}).\nSetara ${d > 0 ? '+' : '-'}${rp(Math.abs(dsp))}/gr harga spot.\n\nHarga Antam bisa ikut menyesuaikan. Pantau update berikutnya di channel ini.` + kaki(D, true);
+        await kirim('alert', null, s, s, dalamJam(WA_AKTIF)); ST.alertAt = NOW.getTime(); console.log('Terkirim: alert gerak cepat');
+      }
+    }
+  }
+  // ⭐ Testimoni: langsung saat admin menekan "Kirim ke channel", plus rutin Rabu 16.00–18.00
+  const TL = D?.toko?.testi || [], TK = D?.toko?.testiKirim;
+  const kirimTesti = async t => { const v = await video('testi', { pengirim: t.nama, kota: t.kota, isi: t.isi, bintang: t.bintang });
+    const s = `⭐ <b>KATA PELANGGAN KAMI</b>\n${'★'.repeat(t.bintang || 5)}\n\n“${esc(t.isi)}”\n— <b>${esc(t.nama)}</b>${t.kota ? ', ' + esc(t.kota) : ''}\n\nTerima kasih atas kepercayaannya 🙏 Mau beli atau jual emas? Chat kami 👇` + kaki(D, true).replace('Proyeksi hanya perkiraan, bukan saran investasi.', '');
+    await kirim('testi', null, s, s, true, false, v); ST.testiAt = NOW.getTime(); console.log('Terkirim: testimoni ' + t.nama); };
+  if (aktif('testi') && TK?.ver && TK.ver !== ST.testiVer) { const t = TL.find(x => x.id === TK.id); if (t && NOW.getTime() - TK.ver < 2 * 864e5) await kirimTesti(t); ST.testiVer = TK.ver; }
+  if (TL.length && dow === 3 && waktunya('testi', 960, 1080)) {
+    if (NOW.getTime() - (ST.testiAt || 0) > 2 * 864e5) { const i = (ST.testiIdx || 0) % TL.length; await kirimTesti(TL[i]); ST.testiIdx = i + 1; }
+    ST.k.testi = hr;
+  }
+  // 📅 Agenda ekonomi (FOMC, CPI, dan agenda dari aplikasi)
+  await agenda(D, G);
+  // 💭 Andai dulu beli (Minggu 10.00–12.00, saat pasar libur)
+  if (dow === 0 && a?.riwayat?.length && a.bb && waktunya('andai', 600, 720)) {
+    const R = a.riwayat.filter(r => r.beli), cari = n => { const t = new Date(NOW.getTime() - n * 864e5 + 7 * 3600e3).toISOString().slice(0, 10); return R.filter(r => r.tgl <= t).slice(-1)[0]; };
+    const dataAndai = [];
+    const baris = [[7, '1 minggu'], [30, '1 bulan'], [90, '3 bulan']].map(([n, l]) => { const r = cari(n); if (!r) return ''; const sel = (a.bb - r.beli) * 10;
+      dataAndai.push({ label: l + ' lalu', tgl: new Date(r.tgl + 'T00:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' }), beli: r.beli * 10, bb: a.bb * 10, sel });
+      return `• ${l} lalu (${new Date(r.tgl + 'T00:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' })}): beli ${rp(r.beli * 10)} → buyback hari ini ${rp(a.bb * 10)} = <b>${sel >= 0 ? '+' : '-'}${rp(Math.abs(sel))}</b> ${sel >= 0 ? '🟢' : '🔴'}`; }).filter(Boolean);
+    if (baris.length) {
+      const s = `💭 <b>ANDAI DULU BELI 10 GRAM ANTAM…</b>\n\n${baris.join('\n')}\n\n<i>Hitungan memakai harga beli per gram × 10 dan buyback terakhir, belum termasuk pajak. Karena ada selisih beli–buyback, emas paling cocok untuk tabungan jangka panjang.</i>` + kaki(D, true);
+      const vN = await video('andai', { baris: dataAndai });
+      await kirim('andai', null, s, s, true, false, vN); console.log('Terkirim: andai dulu beli');
+    }
+    ST.k.andai = hr;
+  }
+}
+async function hasilPolling(a) {                                    // dipanggil setelah harga Antam baru terkirim
+  const P = ST.poll; if (!aktif('polling') || !P || P.selesai || a.tgl <= P.tgl) return;
+  const d = a.beli - P.ref, jwb = Math.abs(d) < 1000 ? '➖ Tetap' : d > 0 ? '📈 Naik' : '📉 Turun';
+  const s = `🎯 <b>HASIL TEBAK HARGA</b>\n\nHarga beli Antam ${d > 0 ? 'NAIK' : d < 0 ? 'TURUN' : 'TETAP'}${d ? ' ' + rp(Math.abs(d)) : ''} (${rp(P.ref)} → ${rp(a.beli)}).\nJawaban yang benar: <b>${jwb}</b> 🎉\n\nYang menebak benar, mantap! Tebakan berikutnya siang ini ya 😉`;
+  if (P.msg && !DRY) try { await tg('stopPoll', { chat_id: CHAT, message_id: P.msg }); } catch (e) { }
+  await kirim('hasil-polling', null, s, s, false, true); P.selesai = true; console.log('Terkirim: hasil polling');
+}
+async function rekor(a) {                                           // harga Antam tertinggi / terendah dalam data yang ada
+  if (!aktif('rekor')) return;
+  const R = (a.riwayat || []).filter(r => r.tgl < a.tgl && r.beli); if (R.length < 20) return;
+  const mx = Math.max(...R.map(r => r.beli)), mn = Math.min(...R.map(r => r.beli)), hari0 = Math.round((new Date(a.tgl) - new Date(R[0].tgl)) / 864e5);
+  let s = '';
+  if (a.beli > mx) s = `🏆 <b>REKOR BARU!</b>\nHarga beli Antam ${rp(a.beli)}/gr adalah yang <b>tertinggi dalam ${hari0} hari terakhir</b> (sebelumnya ${rp(mx)}).`;
+  else if (a.beli < mn) s = `💎 <b>TERENDAH DALAM ${hari0} HARI</b>\nHarga beli Antam ${rp(a.beli)}/gr adalah yang <b>termurah dalam ${hari0} hari terakhir</b> (sebelumnya ${rp(mn)}).`;
+  if (s) { s += '\n\n<i>Berdasarkan data harga yang tercatat di channel ini. Bukan saran investasi.</i>';
+    const vR = await video('rekor', { tinggi: a.beli > mx, hari: hari0, beli: a.beli, sebelum: a.beli > mx ? mx : mn, seri: R.slice(-12).map(r => r.beli).concat([a.beli]) });
+    await kirim('rekor', null, s, s, true, false, vR); console.log('Terkirim: rekor'); }
+}
+
+/* ---------------- video animasi 3D ---------------- */
+let VMOD;
+async function video(jenis, data) {
+  if (!CV || /^(off|0|false)$/i.test(process.env.VIDEO || '')) return null;
+  try { VMOD = VMOD || await import('./video.mjs'); return await VMOD.buatVideo(jenis, { nama: D0?.toko?.nama || '', wa: String(D0?.toko?.wa || '').replace(/^62/, '0'), ...data }, { CV, LOGO, FONT, musik: !/^(off|0|false)$/i.test(process.env.MUSIK || '') }); }
+  catch (e) { console.log('Video gagal dibuat:', e.message); return null; }
+}
+let D0 = null;
+const seriAntam = (a, n = 20) => (a?.riwayat || []).filter(r => r.beli).slice(-n).map(r => r.beli);
+async function kirimToko(D, promo) {
+  const f = D.toko.info, v = await video('toko', { tgl: hari(waktuWIB(f.upd || f.ver).tgl), merek: f.merek, kolom: f.kolom, catatan: f.catatan, rows: f.rows });
+  let cap = capToko(D); if (promo) cap = cap.replace(/^🏪 <b>[^<]*<\/b>/, '🛍️ <b>HARGA TOKO HARI INI</b> (pengingat sore)');
+  ST.tokoAt = NOW.getTime();
+  if (v) { await kirim('toko', null, cap, cap, true, false, v); if (CV) await kirim('toko-tabel', gambarToko(D), `📋 <b>Daftar harga ${esc(String(D.toko.nama || '').replace(/^@/, ''))}</b> (gambar)`, cap, true, true); }
+  else await kirim('toko', CV ? gambarToko(D) : null, cap, cap);
+}
+/* ---------------- agenda ekonomi: hitung mundur & reaksi pasar ---------------- */
+// Sumber: jadwal resmi FOMC (federalreserve.gov, revisi 12 Nov 2026) & jadwal rilis CPI (bls.gov). Keputusan FOMC 14.00 ET hari ke-2; CPI 08.30 ET.
+const FOMC = ['2026-12-09', '2027-01-27', '2027-03-17', '2027-04-28', '2027-06-09', '2027-07-28', '2027-09-15', '2027-11-17', '2028-01-26'];
+const CPI = ['2026-12-10', '2027-01-13', '2027-02-11', '2027-03-10', '2027-04-13', '2027-05-12', '2027-06-10', '2027-07-14', '2027-08-11', '2027-09-14', '2027-10-14', '2027-11-10', '2027-12-10'];
+function etKeUtc(tgl, hh, mm) {                                  // jam New York (otomatis EST/EDT) → milidetik UTC
+  const [y, m, d] = tgl.split('-').map(Number);
+  for (const off of [5, 4]) { const ms = Date.UTC(y, m - 1, d, hh + off, mm), j = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(new Date(ms));
+    if (Number(j) % 24 === hh) return ms; }
+  return Date.UTC(y, m - 1, d, hh + 5, mm);
+}
+function daftarAgenda(D) {
+  const L = [...FOMC.map(t => ({ id: 'fomc-' + t, acara: 'Keputusan suku bunga The Fed (FOMC)', t: etKeUtc(t, 14, 0), ket: 'Suku bunga AS sangat memengaruhi harga emas. Saat pengumuman, harga emas biasanya bergerak tajam.' })),
+    ...CPI.map(t => ({ id: 'cpi-' + t, acara: 'Rilis data inflasi AS (CPI)', t: etKeUtc(t, 8, 30), ket: 'Data inflasi memengaruhi arah suku bunga The Fed dan sering membuat harga emas bergejolak.' }))];
+  for (const a of D?.toko?.agenda || []) { const [hh, mm] = String(a.jam).split('.').map(Number); const [y, m, d] = a.tgl.split('-').map(Number);
+    if (y && hh >= 0) L.push({ id: 'c-' + a.id + '-' + a.tgl + a.jam, acara: a.nama, t: Date.UTC(y, m - 1, d, hh - 7, mm || 0), ket: a.ket || '' }); }
+  return L;
+}
+const labelWaktu = ms => { const w = new Date(ms + 7 * 3600e3); return w.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' }) + ' · ' + w.toISOString().slice(11, 16).replace(':', '.') + ' WIB'; };
+async function agenda(D, G) {
+  if (!aktif('agenda') || jamSunyi()) return;
+  ST.ag = ST.ag || {}; const now = NOW.getTime();
+  for (const id of Object.keys(ST.ag)) if (ST.ag[id].t < now - 3 * 864e5) delete ST.ag[id];
+  for (const e of daftarAgenda(D)) {
+    const sisa = e.t - now, st = ST.ag[e.id] || (ST.ag[e.id] = { t: e.t });
+    if (sisa > 20 * 3600e3 && sisa < 30 * 3600e3 && !st.h1) {
+      const s = `📅 <b>AGENDA BESOK</b>\n\n<b>${esc(e.acara)}</b>\n🕑 ${labelWaktu(e.t)}\n\n${esc(e.ket)}\n\nKami akan kirim pengingat beberapa jam sebelumnya dan update pergerakan emas setelah pengumuman.` + kaki(D, true);
+      await kirim('agenda-h1', null, s, s, dalamJam(WA_AKTIF), true); st.h1 = 1; console.log('Terkirim: agenda H-1 ' + e.id);
+    } else if (sisa > 110 * 60e3 && sisa <= 200 * 60e3 && !st.mundur) {
+      const jam = Math.round(sisa / 3600e3), label = jam >= 3 ? '3 JAM LAGI' : jam >= 2 ? '2 JAM LAGI' : 'SEBENTAR LAGI';
+      const v = await video('agenda', { sisa: label, acara: e.acara, waktu: labelWaktu(e.t), ket: e.ket, frac: Math.max(0.1, 1 - sisa / (4 * 3600e3)) });
+      const s = `⏳ <b>${label}: ${esc(e.acara.toUpperCase())}</b>\n🕑 ${labelWaktu(e.t)}\n\n${esc(e.ket)}${G.xau ? `\n\nPosisi emas sekarang: XAUUSD $${usd(G.xau)} · spot ${rp(spotOf(G))}/gr` : ''}\n\n<i>Harga bisa bergerak cepat menjelang & sesudah pengumuman. Bukan saran investasi.</i>` + kaki(D, true);
+      await kirim('agenda', null, s, s, dalamJam(WA_AKTIF), false, v); st.mundur = 1; if (G.xau) st.pre = { x: G.xau, k: G.kurs }; console.log('Terkirim: hitung mundur ' + e.id);
+    } else if (sisa < -20 * 60e3 && sisa > -10 * 3600e3 && !st.reaksi && G.xau) {
+      const pre = st.pre || (() => { const h = ST.hist.filter(p => p.t < e.t && p.t > e.t - 3 * 3600e3).at(-1); return h ? { x: h.x, k: h.k } : null; })();
+      if (pre) { const d = (G.xau - pre.x) / pre.x, dsp = spotOf(G) - pre.x * pre.k / OZ;
+        const s = `⚡ <b>REAKSI PASAR: ${esc(e.acara)}</b>\n\nSejak sebelum pengumuman (${labelWaktu(e.t)}):\n• XAUUSD ${d >= 0 ? '📈' : '📉'} <b>${d >= 0 ? '+' : '-'}${pct(Math.abs(d))}</b> ($${usd(pre.x)} → $${usd(G.xau)})\n• Spot ${dsp >= 0 ? '+' : '-'}${rp(Math.abs(dsp))}/gr → ${rp(spotOf(G))}/gr\n\nHarga Antam berikutnya bisa ikut menyesuaikan. Pantau terus channel ini.` + kaki(D, true);
+        await kirim('agenda-reaksi', null, s, s, dalamJam(WA_AKTIF)); console.log('Terkirim: reaksi ' + e.id); }
+      st.reaksi = 1;
+    }
+  }
+}
+function cariSlot() {                                           // jadwal kelipatan PERIODE terdekat: ≤4 menit ke depan atau ≤4 menit lewat
+  const P = PERIODE * 60e3, t = NOW.getTime(), next = Math.ceil(t / P) * P, prev = Math.floor(t / P) * P;
+  if (next - t <= TELAT_MAKS && next !== t) return next;
+  if (t - prev <= TELAT_MAKS) return prev;
+  return null;
+}
+function dalamJam(r) {                                           // "7-21" → 07.00–20.59 WIB
+  if (!/^\d{1,2}-\d{1,2}$/.test(r)) return true;
+  const [a, b] = r.split('-').map(Number), h = wib().getUTCHours();
+  return a > b ? (h >= a || h < b) : (h >= a && h < b);
+}
 function jamSunyi() {
   if (!/^\d{1,2}-\d{1,2}$/.test(QUIET)) return false;
   const [a, b] = QUIET.split('-').map(Number), h = wib().getUTCHours();
@@ -392,7 +603,7 @@ function jamSunyi() {
 async function main() {
   if (!DRY && !(TOKEN && CHAT) && !(WHAPI && WA_CH)) throw new Error('Isi secret TELEGRAM_TOKEN/TELEGRAM_CHAT dan/atau WHAPI_TOKEN/WA_CHANNEL');
   ST = readJSON(STATE, {}); AK = readJSON('akurasi.json', { riwayat: [] });
-  let D = readJSON('harga.json', null); const G = await hargaGlobal(D);
+  let D = readJSON('harga.json', null); D0 = D; const G = await hargaGlobal(D);
   await siapkanCanvas();
   D = await perintahTelegram(D, G);
   ST.hist = (ST.hist || []).filter(h => h.t > NOW.getTime() - 3 * 864e5);
@@ -405,36 +616,63 @@ async function main() {
     const key = [a.tgl, a.jam, a.beli, a.bb].join('|');
     if (key !== ST.antamKey) {
       AK_BARU = evaluasiPrediksi(D);
-      await kirim('antam', CV ? gambarAntam(D) : null, capAntam(D), teksAntamLengkap(D, G)); ST.antamKey = key; console.log('Terkirim: Antam');
+      const vA = await video('antam', { tgl: hari(a.tgl), jam: a.jam, beli: a.beli, bb: a.bb, prevBeli: a.prevBeli, prevBb: a.prevBb, seri: seriAntam(a) });
+      if (vA) {
+        await kirim('antam', null, capAntam(D).replace('📋 Daftar 0,5 gr – 1 kg ada di gambar.', '📋 Daftar 0,5 gr – 1 kg ada di gambar berikutnya.'), teksAntamLengkap(D, G), true, false, vA);
+        if (CV) await kirim('antam-tabel', gambarAntam(D), `📋 <b>Daftar harga Antam ${hari(a.tgl)}</b> · 0,5 gr – 1 kg`, teksAntamLengkap(D, G), true, true);
+      } else await kirim('antam', CV ? gambarAntam(D) : null, capAntam(D), teksAntamLengkap(D, G));
+      ST.antamKey = key; console.log('Terkirim: Antam');
+      try { await hasilPolling(a); await rekor(a); } catch (e) { console.log('Konten Antam gagal:', e.message); }
     }
   }
   // 1b) harga toko yang dikirim admin dari aplikasi (sekali per pengiriman; abaikan yang sudah >2 hari)
   const inf = D?.toko?.info;
   if (inf?.ver && inf.rows?.length && inf.ver !== ST.infoVer) {
-    if (NOW.getTime() - inf.ver < 2 * 864e5) { await kirim('toko', CV ? gambarToko(D) : null, capToko(D), capToko(D)); console.log('Terkirim: harga toko'); }
+    if (NOW.getTime() - inf.ver < 2 * 864e5) { await kirimToko(D, false); console.log('Terkirim: harga toko'); }
     ST.infoVer = inf.ver;
   }
-  // 2) & 3) update global / pasar tutup
+  // 2) & 3) update global TEPAT di menit kelipatan PERIODE (WIB) / pasar tutup
+  const slot = cariSlot();
+  if (slot) {
+    if (slot > NOW.getTime()) {                                  // dipicu 1 menit lebih awal → tunggu sampai detik ke-0
+      const tunggu = slot - (MOCK ? NOW.getTime() : Date.now());
+      console.log(`Menunggu ${Math.round(tunggu / 1000)} detik sampai ${jamWIB(new Date(slot))} WIB`);
+      if (!MOCK && tunggu > 0) await new Promise(r => setTimeout(r, tunggu));
+      NOW = MOCK ? new Date(slot) : new Date();
+      Object.assign(G, await hargaGlobal(D));                    // ambil harga terbaru tepat di jam posting
+      if (G.xau && G.kurs) ST.hist.push({ t: NOW.getTime(), x: G.xau, k: G.kurs });
+    }
+  }
   if (G.xau && G.kurs) {
-    const umur = G.at ? (NOW.getTime() - new Date(G.at).getTime()) / 60e3 : 0, gerak = G.at && G.at !== ST.xauAt;
-    if (gerak && umur < 60) {
+    const umur = G.at ? (NOW.getTime() - new Date(G.at).getTime()) / 60e3 : 0, buka = G.at && umur < 30;
+    if (buka) {
       ST.tutup = false;
-      if (!jamSunyi() && NOW.getTime() - (ST.globalAt || 0) > 50 * 60e3) {
-        const cap = capGlobal(D, G, false), keWa = NOW.getTime() - (ST.waGlobalAt || 0) > WA_JAM * 3600e3 - 10 * 60e3;
-        await kirim('global', CV ? gambarGlobal(D, G, ST.hist, false) : null, cap, cap, keWa); ST.globalAt = NOW.getTime(); if (keWa) ST.waGlobalAt = NOW.getTime();
-        console.log('Terkirim: global' + (keWa ? ' (Telegram + WA)' : ' (Telegram saja, WA menunggu jadwal)'));
-      } else console.log('Update global: belum 1 jam sejak posting terakhir / jam sunyi.');
+      if (slot && slot !== ST.globalSlot && !jamSunyi()) {
+        const w = wib(new Date(slot)), mHari = w.getUTCHours() * 60 + w.getUTCMinutes(), perJam = w.getUTCMinutes() === 0;
+        const keWa = mHari % WA_MENIT === 0 && dalamJam(WA_AKTIF);
+        const cap = capGlobal(D, G, false, !perJam);
+        await kirim('global', CV ? gambarGlobal(D, G, ST.hist, false) : null, cap, cap, keWa, !perJam);
+        ST.globalSlot = slot; ST.globalAt = NOW.getTime(); ST.lastG = { x: G.xau, k: G.kurs, t: NOW.getTime() }; if (keWa) ST.waGlobalAt = NOW.getTime();
+        console.log(`Terkirim: global ${jamWIB()} WIB` + (perJam ? ' (dengan notifikasi)' : ' (senyap)') + (keWa ? ' + WA' : ''));
+      } else console.log('Update global: bukan jadwal / sudah terkirim / jam sunyi.');
       ST.xauAt = G.at;
     } else if (umur >= 60 && !ST.tutup && ST.xauAt) {
       const cap = capGlobal(D, G, true);
       await kirim('tutup', CV ? gambarGlobal(D, G, ST.hist, true) : null, cap, cap); ST.tutup = true; console.log('Terkirim: pasar tutup');
-    } else console.log('Update global: tidak ada yang dikirim (pasar diam / jam sunyi / belum 1 jam).');
+    } else console.log('Update global: pasar diam, tidak ada yang dikirim.');
   }
+  // 3b) konten channel: kabar pagi, tebak harga, edukasi, alert gerak cepat, andai dulu beli
+  try { await konten(D, G); } catch (e) { console.log('Konten gagal:', e.message); }
   // 4) rekap mingguan: Sabtu mulai 12.00 WIB, sekali seminggu
   const w = wib();
   if (w.getUTCDay() === 6 && w.getUTCHours() >= 12 && ST.rekap !== tglWIB()) {
     const W = dataMingguan(D);
-    if (W) { await kirim('rekap', CV ? gambarRekap(D, W) : null, capRekap(D, W), capRekap(D, W)); console.log('Terkirim: rekap mingguan'); }
+    if (W) {
+      const S7 = (D?.antam?.riwayat || []).filter(r => r.beli).slice(-7);
+      const vK = await video('rekap', { periode: `${tglPendek(W.dari)} – ${tglPendek(W.sampai)} ${new Date(W.sampai).getUTCFullYear()}`, d: W.d, awal: W.awal.beli, akhir: W.akhir.beli,
+        seri: S7.map(r => r.beli), label: S7.map(r => new Date(r.tgl + 'T00:00:00Z').toLocaleDateString('id-ID', { weekday: 'short', timeZone: 'UTC' })), xau: W.xau?.p ?? null, ak: W.ak ? `${W.ak.tepat}/${W.ak.n}` : '' });
+      await kirim('rekap', CV && !vK ? gambarRekap(D, W) : null, capRekap(D, W), capRekap(D, W), true, false, vK); console.log('Terkirim: rekap mingguan');
+    }
     ST.rekap = tglWIB();
   }
   // 5) simpan prediksi terbaru untuk dinilai saat harga Antam berikutnya keluar
